@@ -173,6 +173,7 @@ async fn start_http_server_v2(bind_addr: String, query_engine: Arc<QueryEngineV2
     
     // Combine routers - batch monitoring doesn't need state
     let app = Router::new()
+        .route("/", get(|| async { "OK" }))
         .nest("/api", app)
         .nest("/monitor", batch_monitor_router);
     

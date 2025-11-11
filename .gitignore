@@ -60,3 +60,4 @@ data/*
 /.idea/
 
 __test*
+.cargo/.run
