@@ -13,64 +13,11 @@ OpenWit supports two deployment modes:
 
 ### Distributed Mode (Batch-Based Pipeline)
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Kafka     │     │  HTTP/REST  │     │  gRPC/OTLP  │
-│   Topics    │     │   Clients   │     │   Clients   │
-└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
-       │                   │                   │
-       └───────────────────┴───────────────────┘
-                           │
-                   ┌───────▼────────┐
-                   │   Ingestion    │
-                   │    Sources     │
-                   │                │
-                   │  ┌──────────┐  │  ← Batch Formation
-                   │  │   WAL    │  │    (size configurable)
-                   │  │ (Written │  │
-                   │  │  First)  │  │  ← WAL written here
-                   │  └──────────┘  │    before processing
-                   │                │
-                   │  Kafka/HTTP/   │  ← Direct OTLP→Arrow
-                   │  gRPC Handlers │    (12x faster)
-                   └───────┬────────┘
-                           │
-                   ┌───────▼────────┐
-                   │   Ingestion    │  ← Arrow Conversion
-                   │   Processing   │    & Batch Routing
-                   └───────┬────────┘
-                           │
-                ┌──────────┴──────────┐
-                │                     │
-         ┌──────▼──────┐      ┌──────▼──────┐
-         │   Storage   │      │   Indexer   │
-         │    Nodes    │      │    Nodes    │
-         │  (Parquet)  │      │  (Tantivy)  │
-         └──────┬──────┘      └──────┬──────┘
-                │                     │
-                └──────────┬──────────┘
-                    ┌──────▼──────┐
-                    │   Search    │
-                    │    Nodes    │
-                    │ (DataFusion │
-                    │     SQL)    │
-                    └─────────────┘
-                           ▲
-                           │
-                    ┌──────┴──────┐
-                    │   Control   │
-                    │    Plane    │
-                    │             │
-                    │ + Batch     │
-                    │  Monitoring │
-                    └─────────────┘
-                           ▲
-                           │
-                    ┌──────┴──────┐
-                    │  PostgreSQL │  ← Batch Tracker
-                    │   Database  │    (Pipeline State)
-                    └─────────────┘
-```
+<p align="center">
+    <a href="https://docs.openwit.io/" target="_blank"><img src="./public/image/architecture-flow.png" alt="OpenWit - Data Flow Architecture" style="width: 100%;"></a>
+    <br />
+    <br />
+</p>
 
 ### Monolith Mode (Single Process)
 
