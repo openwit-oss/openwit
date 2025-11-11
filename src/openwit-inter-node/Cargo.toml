@@ -1,0 +1,30 @@
+[package]
+name = "openwit-inter-node"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tonic = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+bytes = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+arrow = { workspace = true }
+arrow-flight = { workspace = true }
+async-stream = { workspace = true }
+bincode = { workspace = true }
+
+# Internal dependencies
+openwit-control-plane = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true }

@@ -1,0 +1,30 @@
+[package]
+name = "openwit-proto"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+clap = { workspace = true }
+flate2 = { workspace = true }
+
+http = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+
+axum = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+opentelemetry-proto = { workspace = true }
+chrono = { workspace = true }
+
+openwit-config = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true }
+prost-build = { workspace = true }

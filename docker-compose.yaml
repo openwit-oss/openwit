@@ -1,0 +1,141 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: openwit-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-openwit}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openwit_dev_password}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - openwit_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  openwit-cp:
+    container_name: openwit-cp
+    image: ghcr.io/middleware-labs/openwit:latest
+    # Uncomment to build locally:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   target: openwit
+    command:
+      - openwit
+      - '--config'
+      - /openwit/config/openwit-unified-control.yaml
+      - control
+    environment:
+      - POSTGRES_URL=${POSTGRES_URL:-postgresql://postgres:openwit_dev_password@postgres:5432/openwit}
+      - CONTROL_PLANE_GRPC_ENDPOINT=${CONTROL_PLANE_GRPC_ENDPOINT:-http://openwit-cp:7019}
+      - RUST_LOG=${RUST_LOG:-info}
+    ports:
+      - '7019:7019'
+    volumes:
+      - openwit-cp-data:/openwit/data/
+      - ./config:/openwit/config:ro
+    networks:
+      - openwit_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  openwit-ingest:
+    container_name: openwit-ingest
+    image: ghcr.io/middleware-labs/openwit:latest
+    # Uncomment to build locally:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   target: openwit
+    command:
+      - openwit
+      - '--config'
+      - /openwit/config/openwit-unified-control.yaml
+      - ingest
+      - '--force-grpc'
+    environment:
+      - POSTGRES_URL=${POSTGRES_URL:-postgresql://postgres:openwit_dev_password@postgres:5432/openwit}
+      - CONTROL_PLANE_GRPC_ENDPOINT=${CONTROL_PLANE_GRPC_ENDPOINT:-http://openwit-cp:7019}
+      - RUST_LOG=${RUST_LOG:-info}
+    ports:
+      - '4317:4317'
+      - '9087:9087'
+    volumes:
+      - openwit-ingest-data:/openwit/data/
+      - ./config:/openwit/config:ro
+    networks:
+      - openwit_network
+    depends_on:
+      - postgres
+      - openwit-cp
+
+  openwit-storage:
+    container_name: openwit-storage
+    image: ghcr.io/middleware-labs/openwit:latest
+    command:
+      - openwit
+      - '--config'
+      - /openwit/config/openwit-unified-control.yaml
+      - storage
+    environment:
+      - POSTGRES_URL=${POSTGRES_URL:-postgresql://postgres:openwit_dev_password@postgres:5432/openwit}
+      - CONTROL_PLANE_GRPC_ENDPOINT=${CONTROL_PLANE_GRPC_ENDPOINT:-http://openwit-cp:7019}
+      - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
+      - AZURE_STORAGE_ACCESS_KEY=${AZURE_STORAGE_ACCESS_KEY}
+      - AZURE_STORAGE_CONTAINER=${AZURE_STORAGE_CONTAINER}
+      - AZURE_STORAGE_ENDPOINT=${AZURE_STORAGE_ENDPOINT}
+      - RUST_LOG=${RUST_LOG:-info}
+    ports:
+      - '8081:8081'
+      - '9401:9401'
+    volumes:
+      - openwit-storage-data:/openwit/data/
+      - ./config:/openwit/config:ro
+    networks:
+      - openwit_network
+    depends_on:
+      - postgres
+      - openwit-cp
+
+  openwit-search:
+    container_name: openwit-search
+    image: ghcr.io/middleware-labs/openwit:latest
+    command:
+      - openwit
+      - '--config'
+      - /openwit/config/openwit-unified-control.yaml
+      - search
+    environment:
+      - POSTGRES_URL=${POSTGRES_URL:-postgresql://postgres:openwit_dev_password@postgres:5432/openwit}
+      - CONTROL_PLANE_GRPC_ENDPOINT=${CONTROL_PLANE_GRPC_ENDPOINT:-http://openwit-cp:7019}
+      - RUST_LOG=${RUST_LOG:-info}
+    ports:
+      - '8083:8083'
+    volumes:
+      - openwit-search-data:/openwit/data/
+      - ./config:/openwit/config:ro
+    networks:
+      - openwit_network
+    depends_on:
+      - postgres
+      - openwit-cp
+      - openwit-storage
+
+volumes:
+  postgres-data:
+  openwit-cp-data:
+  openwit-ingest-data:
+  openwit-storage-data:
+  openwit-search-data:
+
+
+networks:
+  openwit_network:
+    driver: bridge

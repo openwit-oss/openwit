@@ -1,0 +1,61 @@
+[package]
+name = "openwit-kafka"
+version.workspace = true
+edition.workspace = true
+authors = ["OpenWit Team"]
+description = "Kafka ingestion service for OpenWit"
+
+[[bin]]
+name = "openwit-kafka"
+path = "src/main.rs"
+
+[dependencies]
+# Core dependencies
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+bytes = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+base64 = { workspace = true }
+
+# Kafka dependencies
+rdkafka = { workspace = true }
+tokio-stream = { workspace = true }
+regex = { workspace = true }
+
+# gRPC dependencies
+tonic = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+
+# OTLP dependencies
+opentelemetry-proto = { workspace = true }
+hex = { workspace = true }
+
+# Compression dependencies
+flate2 = { workspace = true }
+zstd = { workspace = true }
+
+# Database dependencies
+sqlx = { workspace = true }
+
+# File and checksum dependencies
+crc32fast = { workspace = true }
+tempfile = { workspace = true, features = ["default"] }
+
+# Internal dependencies
+openwit-config = { workspace = true }
+openwit-common = { workspace = true }
+openwit_ingestion = { workspace = true }
+openwit-metrics = { workspace = true }
+openwit-proto = { workspace = true }
+openwit-control-plane = { workspace = true }
+
+# CLI and config
+clap = { workspace = true }
+serde_yaml = { workspace = true }
+tracing-subscriber = { workspace = true }
+lazy_static = { workspace = true }

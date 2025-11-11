@@ -1,0 +1,62 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+/docs
+
+# IDE
+.idea
+.vscode/
+*.swp
+*.swo
+*~
+.sh
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment and sensitive files
+.env
+.env.*
+!.env.example
+*.env
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+
+# Configuration files with credentials
+config/production-*.yaml
+config/*-production.yaml
+!config/*.yaml.example
+
+# Logs
+*.log
+logs/
+
+# Test artifacts
+tarpaulin-report.html
+cobertura.xml
+
+# Build artifacts
+dist/
+build/
+
+# Documentation
+/target/doc/
+
+# Benchmarks
+/target/criterion/
+
+# Debug
+*.pdb
+
+# Coverage
+*.profraw
+*.profdata
+data/*
+/.idea/
+
+__test*

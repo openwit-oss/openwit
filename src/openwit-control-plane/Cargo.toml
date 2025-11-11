@@ -1,0 +1,49 @@
+[package]
+name = "openwit-control-plane"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tonic = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+dashmap = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+hex = { workspace = true }
+
+# For leader election
+raft = { workspace = true }
+
+# Database
+sqlx = { workspace = true }
+
+# Internal dependencies
+openwit-config = { workspace = true }
+openwit-network = { workspace = true }
+openwit-common = { workspace = true }
+openwit-metrics = { workspace = true }
+openwit-metastore = { workspace = true }
+openwit-proto = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true }
+
+[[example]]
+name = "test_mandatory_nodes"
+path = "examples/test_mandatory_nodes.rs"
+
+[[example]]
+name = "simulate_cluster_formation"
+path = "examples/simulate_cluster_formation.rs"
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }

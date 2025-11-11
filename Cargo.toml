@@ -1,0 +1,235 @@
+[workspace]
+resolver = "2"
+members = [
+    "src/openwit-proxy",
+    # "src/openwit-perf-test",  # Temporarily disabled - rdkafka dependency issue
+    "src/openwit-inter-node",
+    "src/openwit_ingestion",
+    "src/openwit-storage",
+    "src/openwit-control-plane",
+    "src/openwit-cli",
+    "src/openwit-network",
+    "src/openwit-metrics",
+    "src/openwit-metastore",
+    "src/openwit-search",
+    "src/openwit-transformations",
+    "src/openwit-server",
+    "src/openwit-janitor",
+    "src/openwit-proto",
+    "src/openwit-actors",
+    "src/openwit-common",
+    "src/openwit-config",
+    "src/openwit-indexer",
+    "src/openwit-http",
+    "src/openwit-grpc",
+    "src/openwit-kafka",
+    "src/openwit-source-gateway",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/openwit/openwit"
+
+
+[workspace.dependencies]
+anyhow = "1"
+async-trait = "0.1.85"
+base64 = "0.22.1"
+bincode = "1.3"
+blake3 = "1.5.5"
+bytes = "1.9.0"
+chrono = { version = "0.4.39", default-features = false, features = ["now", "serde"] }
+clap = {version = "4.5.38", features = ["derive"]}
+jsonschema = "0.18"
+schemars = { version = "0.8", features = ["derive"] }
+console-subscriber = "0.2"
+flate2 = "1.1.1"
+prometheus = "0.14.0"
+ractor = { version = "0.15.6", features = ["cluster"] }
+flatbuffers = "24.12.23"
+arrow = { version = "55.2.0", features = ["prettyprint"] }
+arrow-flight = { version = "55.2.0", features = ["flight-sql-experimental"] }
+arrow-ipc = { version = "55.2.0" }
+arrow-schema = "55.2.0"
+arrow-array = "55.2.0"
+arrow-buffer = "55.2.0"
+arrow-cast = "55.2.0"
+arrow-string = "55.2.0"
+arrow-select = "55.2.0"
+arrow-row = "55.2.0"
+arrow-data = "55.2.0"
+arrow-csv = "55.2.0"
+arrow-json = "55.2.0"
+arrow-ord = "55.2.0"
+ballista = { git = "https://github.com/apache/datafusion-ballista" }
+ballista-core = { git = "https://github.com/apache/datafusion-ballista" }
+ballista-executor = { git = "https://github.com/apache/datafusion-ballista" }
+ballista-scheduler = { git = "https://github.com/apache/datafusion-ballista" }
+chitchat = { git = "https://github.com/quickwit-oss/chitchat.git" }
+dashmap = "6.1.0"
+datafusion = { version = "48.0.0", features = ["backtrace"] }
+datafusion-common = { version = "48.0.0", default-features = true }
+datafusion-physical-expr = { version = "48.0.0", default-features = true }
+datafusion-expr = { version = "48.0.0" }
+datafusion-sql = { version = "48.0.0" }
+datafusion-proto = { version = "48.0.0" }
+futures = "0.3.31"
+humanize-bytes = "1.0"
+http = "1.2.0"
+http-body = "1.0.1"
+http-body-util = "0.1.2"
+libz-sys = "1.1.20"
+lru = "0.12.6"
+memmap2 = "0.9.5"
+metrics = "0.21"
+metrics-exporter-prometheus = "0.12"
+num_cpus = "1.16.0"
+opentelemetry = "0.27.0"
+opentelemetry_sdk = { version = "0.27.0", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.27.0", features = ["grpc-tonic", "http-proto", "reqwest-client"] }
+opentelemetry-proto = { version = "0.27.0", features = ["gen-tonic", "trace", "logs", "metrics", "with-serde"] }
+parquet = { version = "55.2.0", features = ["arrow", "async"] }
+petgraph = "0.6.5"
+prost = "0.13.5"
+prost-build = "0.13.5"
+prost-types = "0.13.5"
+# pyarrow = "18.1.0"  # Removed - not needed without datafusion pyarrow feature
+regex = "1.11.1"
+roaring = "0.10.8"
+siphasher = "1.0.1"
+snafu = "0.8.6"
+serde = { version = "1.0.217", features = ["derive", "rc"] }
+serde_json = "1.0.134"
+serde_yaml = "0.9.34"
+sha2 = "0.10"
+sled = "0.34.7"
+sqlparser = "0.54.0"
+tantivy = "0.22.0"
+thiserror = "2.0.9"
+tokio = { version = "1.42.0", features = ["full", "macros", "tracing"] }
+tokio-stream = "0.1.17"
+tokio-util = "0.7.13"
+tonic = "0.12.3"
+tonic-build = "0.12.3"
+tonic-reflection = "0.12.3"
+tower = { version = "0.5.2", features = ["util", "timeout", "load-shed", "limit"] }
+tracing = "0.1.41"
+tracing-opentelemetry = "0.27.0"
+tracing-subscriber = "0.3.19"
+uuid = { version = "1.11.0", features = ["v4", "serde"] }
+zstd = "0.13.2"
+sysinfo = "0.33.1"
+once_cell = "1.20.2"
+etcd-rs = { version = "1.0.0-alpha.0", features = ["tls", "tls-openssl-vendored"] }
+semver = "1.0.23"
+pin-project = "1.1.7"
+pin-project-lite = "0.2.15"
+pin-utils = "0.1.0"
+md5 = "0.7.0"
+log = "0.4.22"
+lazy_static = "1.5.0"
+itertools = "0.13.0"
+indexmap = "2.7.0"
+hyper = "1.5.2"
+hyper-util = "0.1.10"
+url = { version = "2.5.4", features = ["serde"] }
+ulid = { version = "1.1.3", features = ["serde"] }
+ttl_cache = "0.5.1"
+toml = "0.8.19"
+tempfile = "3.15.0"
+strum = "0.26.3"
+strum_macros = "0.26.4"
+structopt = "0.3.26"
+snafu_derive = "0.8.5"
+smallvec = "1.13.2"
+serde_urlencoded = "0.7.1"
+serde_derive = "1.0.217"
+# rusoto_core = "0.48.0"  # Removed - using object_store instead
+# rusoto_s3 = "0.48.0"    # Removed - using object_store instead
+rocksdb = { version = "0.23.0", features = ["lz4", "zstd"] }
+ring = "0.17.8"
+reqwest = { version = "0.12.12", default-features = false, features = ["json", "rustls-tls", "stream", "gzip"] }
+quote = "1.0.38"
+protobuf = "2.28.0"
+prettyplease = "0.2.25"
+prettytable-rs = "0.10.0"
+path-absolutize = "3.1.1"
+os_info = "3.9.0"
+num-traits = "0.2.19"
+hashbrown = "0.15.2"
+glob = "0.3.2"
+futures-util = "0.3.31"
+either = "1.13.0"
+dotenv = "0.15.0"
+datafusion-proto-common = "48.0.0"
+criterion = "0.5.1"
+crossbeam = "0.8.4"
+crossbeam-utils = "0.8.20"
+approx = "0.5.1"
+async-recursion = "1.1.1"
+axum = { version = "0.7.9", features = ["tokio", "http2", "json", "query"] }
+ahash = "0.8.11"
+apache-avro = "0.18.0"
+async-stream = "0.3.6"
+paste = "1.0.15"
+hex = "0.4.3"
+jemallocator = "0.5.4"
+lz4 = "1.28.0"
+lzma-rs = "0.3.0"
+object_store = { version = "0.12.3", features = ["aws", "gcp", "azure", "http"] }
+opendal = { version = "0.54.0", features = ["services-fs", "services-s3", "services-azblob", "services-gcs"] }
+parking_lot = "0.12.3"
+rand = "0.8.5"
+rdkafka = { version = "0.29" }
+snap = "1.1.1"
+tar = "0.4.43"
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid"] }
+# bloom = "0.3.2"  # Removed - using bloomfilter instead
+xxhash-rust = { version = "0.8.12", features = ["xxh3"] }
+quickwit-jaeger = "0.8.0"
+moka = { version = "0.12", features = ["future"] }
+tower-http = { version = "0.5.2", features = ["trace", "cors"] }
+# warp = "0.3"  # Removed - using axum instead
+crossbeam-channel = "0.5"
+notify = "6.0"
+ctrlc = "3.4"
+cacache = "13.0"
+bloomfilter = "1.0"
+libc = "0.2"
+testcontainers = "0.15"
+proptest = "1.4"
+fs2 = "0.4"
+sys-info = "0.9"
+priority-queue = "2.0"
+crc32fast = "1.4"
+rayon = "1.10"
+walkdir = "2.4"
+indicatif = "0.17"
+validator = { version = "0.19", features = ["derive"] }
+pretty_assertions = "1.4"
+tokio-test = "0.4"
+raft = "0.7"
+
+openwit-proxy = { path = "src/openwit-proxy" }
+openwit-inter-node = { path = "src/openwit-inter-node" }
+openwit_ingestion = { path = "src/openwit_ingestion" }
+openwit-storage = { path = "src/openwit-storage" }
+openwit-control-plane = { path = "src/openwit-control-plane" }
+openwit-cli = { path = "src/openwit-cli" }
+openwit-network = { path = "src/openwit-network" }
+openwit-metrics = { path = "src/openwit-metrics" }
+openwit-metastore = { path = "src/openwit-metastore" }
+openwit-search = { path = "src/openwit-search" }
+openwit-transformations = { path = "src/openwit-transformations" }
+openwit-server = { path = "src/openwit-server" }
+openwit-janitor = { path = "src/openwit-janitor" }
+openwit-proto = { path = "src/openwit-proto" }
+openwit-actors = { path = "src/openwit-actors" }
+openwit-common = { path = "src/openwit-common" }
+openwit-config = { path = "src/openwit-config" }
+openwit-indexer = { path = "src/openwit-indexer" }
+openwit-http = { path = "src/openwit-http" }
+openwit-grpc = { path = "src/openwit-grpc" }
+openwit-kafka = { path = "src/openwit-kafka" }

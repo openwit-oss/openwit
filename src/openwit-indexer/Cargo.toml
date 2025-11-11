@@ -1,0 +1,116 @@
+[package]
+name = "openwit-indexer"
+version.workspace = true
+edition.workspace = true
+
+# [[bin]]
+# name = "openwit-indexer"
+# path = "src/main.rs"
+
+[features]
+default = ["prod"]
+local = []
+prod = ["cluster", "events"]
+cluster = ["chitchat"]
+events = ["tonic", "prost", "arrow-flight"]
+
+[dependencies]
+# Core dependencies
+tokio = { workspace = true, features = ["full"] }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+uuid = { workspace = true, features = ["v4", "serde"] }
+ulid = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
+
+# Config
+toml = { workspace = true }
+serde_yaml = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+
+# Database
+sqlx = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+
+# Storage
+opendal = { workspace = true, features = ["services-s3", "services-azblob", "services-gcs", "services-fs"] }
+bytes = { workspace = true }
+
+# Parquet processing
+parquet = { workspace = true, features = ["arrow", "async"] }
+arrow = { workspace = true, features = ["ffi", "prettyprint"] }
+object_store = { workspace = true }
+
+# Indexing artifacts
+tantivy = { workspace = true }
+# bloom = "0.3" # Removed - using bloomfilter instead
+roaring = { workspace = true }
+zstd = { workspace = true }
+
+# Cluster (optional)
+chitchat = { workspace = true, optional = true }
+
+# gRPC (optional)
+tonic = { workspace = true, optional = true }
+prost = { workspace = true, optional = true }
+prost-types = { workspace = true, optional = true }
+arrow-flight = { workspace = true, optional = true }
+tokio-stream = { workspace = true }
+# warp = { workspace = true }  # Removed - using axum in openwit-http
+axum = { workspace = true }
+
+# Metrics and observability
+prometheus = { workspace = true }
+metrics = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+tracing-opentelemetry = { workspace = true }
+
+# Concurrency and utils
+dashmap = { workspace = true }
+parking_lot = { workspace = true }
+crossbeam-channel = { workspace = true }
+notify = { workspace = true }
+lazy_static = { workspace = true }
+ctrlc = { workspace = true }
+
+# Legacy dependencies for compatibility
+sled = { workspace = true }
+cacache = { workspace = true }
+blake3 = { workspace = true }
+bincode = { workspace = true }
+xxhash-rust = { workspace = true }
+ahash = { workspace = true }
+moka = { workspace = true }
+base64 = { workspace = true }
+bloomfilter = { workspace = true }
+libc = { workspace = true }
+rand = { workspace = true }
+
+# Internal dependencies
+openwit-common = { workspace = true }
+openwit-config = { workspace = true }
+openwit-storage = { workspace = true }
+openwit_ingestion = { workspace = true }
+openwit-metastore = { workspace = true }
+openwit-inter-node = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+testcontainers = { workspace = true }
+criterion = { workspace = true }
+proptest = { workspace = true }
+
+[[bench]]
+name = "index_benchmarks"
+harness = false
+

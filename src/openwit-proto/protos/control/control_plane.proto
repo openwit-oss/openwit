@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package openwit.control;
+
+import "google/protobuf/timestamp.proto";
+
+// Control Plane Service for service discovery and node registration
+service ControlPlaneService {
+    // Register a node with the control plane
+    rpc RegisterNode(RegisterNodeRequest) returns (RegisterNodeResponse);
+    
+    // Get healthy nodes by role
+    rpc GetHealthyNodes(GetHealthyNodesRequest) returns (GetHealthyNodesResponse);
+}
+
+// Get healthy nodes request
+message GetHealthyNodesRequest {
+    string requester_id = 1;
+    string role = 2;  // "control", "proxy", "ingest", "indexer", "storage", "kafka"
+    int32 max_nodes = 3;  // Optional limit on number of nodes returned
+}
+
+message GetHealthyNodesResponse {
+    repeated NodeInfo nodes = 1;
+}
+
+message NodeInfo {
+    string node_id = 1;
+    string grpc_endpoint = 2;
+    string arrow_flight_endpoint = 3;
+    double health_score = 4;  // 0-100, based on resource usage
+    map<string, string> metadata = 5;  // Additional node metadata
+}
+
+// Node registration request
+message RegisterNodeRequest {
+    string node_id = 1;
+    string role = 2;  // "control", "proxy", "ingest", "indexer", "storage", "kafka"
+    map<string, string> metadata = 3;  // Node metadata (service_type, endpoints, etc.)
+}
+
+message RegisterNodeResponse {
+    bool success = 1;
+    string message = 2;
+}

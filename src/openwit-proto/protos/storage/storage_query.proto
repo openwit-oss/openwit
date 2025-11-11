@@ -1,0 +1,119 @@
+syntax = "proto3";
+
+package openwit.storage;
+
+import "google/protobuf/timestamp.proto";
+
+// Storage query service for executing DataFusion queries
+service StorageQueryService {
+    // Execute a SQL query on the storage node
+    rpc ExecuteQuery(QueryRequest) returns (QueryResponse);
+    
+    // Execute a streaming query that returns results in chunks
+    rpc ExecuteStreamingQuery(QueryRequest) returns (stream QueryResultChunk);
+    
+    // Get storage node statistics
+    rpc GetStorageStats(StorageStatsRequest) returns (StorageStatsResponse);
+}
+
+// Query request
+message QueryRequest {
+    string request_id = 1;
+    string query = 2;        // Changed from 'sql' to 'query'
+    string client_id = 3;    // Changed from 'client_name' to 'client_id'
+    uint32 limit = 4;
+    uint32 offset = 5;
+    map<string, string> metadata = 6;
+}
+
+// Query response
+message QueryResponse {
+    string request_id = 1;
+    bool success = 2;
+    string error = 3;
+    QueryResult result = 4;
+    uint64 execution_time_ms = 5;
+}
+
+// Query result
+message QueryResult {
+    repeated ColumnSchema columns = 1;
+    repeated Row rows = 2;
+    uint64 total_rows = 3;
+    uint64 rows_scanned = 4;
+    uint64 bytes_scanned = 5;
+}
+
+// Column schema
+message ColumnSchema {
+    string name = 1;
+    string data_type = 2;
+    bool nullable = 3;
+}
+
+// Row data
+message Row {
+    repeated Value values = 1;
+}
+
+// Value types
+message Value {
+    oneof value {
+        bool bool_value = 1;
+        int64 int64_value = 2;
+        uint64 uint64_value = 3;
+        double double_value = 4;
+        string string_value = 5;
+        bytes bytes_value = 6;
+        google.protobuf.Timestamp timestamp_value = 7;
+        ArrayValue array_value = 8;
+        MapValue map_value = 9;
+        NullValue null_value = 10;
+    }
+}
+
+// Array value
+message ArrayValue {
+    repeated Value values = 1;
+}
+
+// Map value
+message MapValue {
+    map<string, Value> entries = 1;
+}
+
+// Null value
+enum NullValue {
+    NULL_VALUE = 0;
+}
+
+// Streaming query result chunk
+message QueryResultChunk {
+    string request_id = 1;
+    uint32 chunk_id = 2;
+    bool is_last_chunk = 3;
+    repeated Row rows = 4;
+    string error = 5;
+}
+
+// Storage stats request
+message StorageStatsRequest {
+    string client_name = 1;
+}
+
+// Storage stats response
+message StorageStatsResponse {
+    uint64 total_files = 1;
+    uint64 total_size_bytes = 2;
+    repeated ClientStats clients = 3;
+    google.protobuf.Timestamp last_updated = 4;
+}
+
+// Client statistics
+message ClientStats {
+    string client_name = 1;
+    uint64 file_count = 2;
+    uint64 size_bytes = 3;
+    google.protobuf.Timestamp oldest_data = 4;
+    google.protobuf.Timestamp newest_data = 5;
+}

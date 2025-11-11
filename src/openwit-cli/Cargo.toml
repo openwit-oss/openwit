@@ -1,0 +1,56 @@
+[package]
+name = "openwit-cli"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+clap = { workspace = true }
+flate2 = { workspace = true }
+
+http = { workspace = true }
+prost = { workspace = true }
+
+axum = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+opentelemetry-proto = { workspace = true }
+chrono = { workspace = true }
+
+openwit-proto = { workspace = true }
+openwit-server = { workspace = true }
+openwit-common = { workspace = true }
+openwit-config = { workspace = true }
+openwit-proxy = { workspace = true }
+openwit_ingestion = { workspace = true }
+openwit-storage = { workspace = true }
+openwit-indexer = { workspace = true }
+openwit-search = { workspace = true }
+openwit-control-plane = { workspace = true }
+openwit-http = { workspace = true }
+openwit-network = { workspace = true }
+openwit-inter-node = { workspace = true }
+openwit-kafka = { workspace = true }
+
+# Additional dependencies
+uuid = { workspace = true }
+arrow-flight = { workspace = true }
+arrow = { workspace = true }
+tempfile = "3.10"
+futures = { workspace = true }
+bytes = { workspace = true }
+tokio-stream = { workspace = true }
+
+opendal = { version = "0.45", features = ["services-azblob"] }
+parquet = { workspace = true }
+
+[dev-dependencies]
+
+[[bin]]
+name = "openwit-cli"
+path = "src/main.rs"

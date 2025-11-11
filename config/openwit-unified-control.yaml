@@ -1,0 +1,300 @@
+environment: "production"
+
+deployment:
+  mode: "local"
+
+control_plane:
+  grpc_endpoint: "${CONTROL_PLANE_GRPC_ENDPOINT:-http://localhost:7019}"
+
+ingestion:
+  sources:
+    kafka:
+      enabled: true
+    grpc:
+      enabled: false
+    http:
+      enabled: false
+
+  kafka:
+    brokers: "${KAFKA_BROKERS:-localhost:9092}"
+    group_id: "${KAFKA_GROUP_ID:-openwit-ingestion-group}"
+    topics:
+      - "${KAFKA_TOPICS:-v6.qtw.traces.*.*}"
+    consumer_type: "standard"
+
+    high_performance:
+      num_consumers: 2
+      processing_threads: 4
+      num_grpc_clients: 2
+      channel_buffer_size: 10000
+
+      fetch_min_bytes: 262144
+      fetch_max_bytes: 8388608
+      max_partition_fetch_bytes: 2097152
+
+      enable_zero_copy: true
+      zero_copy_threshold_bytes: 102400
+      preallocate_buffers: false
+      buffer_pool_size: 100
+
+    topic_index_config:
+      default_index_position: 3
+
+      patterns:
+        - match: "v6.qtw.*.*.*"
+          index_position: 3
+
+      auto_generate:
+        enabled: false
+        prefix: "auto_"
+        strategy: "hash"
+
+    consumer:
+      session_timeout_ms: 180000
+      heartbeat_interval_ms: 3000
+      max_poll_interval_ms: 900000
+      max_poll_records: 50000
+
+    # SAFE COMMIT CONFIGURATION
+    commit_strategy:
+      mode: "after_wal"                # Options: immediate (risky), after_wal (safe), after_storage (safest)
+      enable_auto_commit: false        # Never auto-commit for safety
+      wait_for_wal: true               # Wait for WAL write confirmation
+      wal_timeout_ms: 10000            # Max 10s to wait for WAL
+      retry_on_failure: true           # Retry if WAL write fails
+      max_retries: 3                   # Max retries before giving up
+
+    batching:
+      batch_size: 100                 # Reduced for lower latency
+      batch_timeout_ms: 100            # 100ms max wait for <1s latency
+
+  batch_tracker:
+    enabled: true
+    postgres_url: "${POSTGRES_URL:-postgresql://postgres:password@localhost:5432/openwit}"
+    batch_config:
+      max_size_bytes: 10485760
+      max_messages: 10000
+      max_age_seconds: 30
+
+    wal_directory: "./data/wal"
+
+  telemetry_type: "traces"
+
+  # Performance settings for <1s latency
+  performance:
+    use_direct_conversion: true       # Use the optimized path
+    preallocate_capacity: 1000        # Pre-allocate Arrow builders
+    zero_copy: true                   # Enable zero-copy operations
+    parallel_processing: true         # Process in parallel
+    workers: 8                        # Number of parallel workers
+
+  # Batch tracking configuration
+  batch_processing:
+    maintain_kafka_batch_id: true     # Keep original Kafka batch IDs
+    process_as_batch: true            # Process entire batch together
+    batch_size: 100                   # Reduced from 1000 for lower latency
+    batch_timeout_ms: 100             # 100ms max wait (was 5000ms)
+    track_per_batch_metrics: true     # Track metrics per batch
+
+  grpc:
+    bind: "0.0.0.0"
+    port: 50051
+    bind_addr: "0.0.0.0:50051"
+
+    runtime_size: 8
+    max_concurrent_requests: 10000
+    request_timeout_ms: 2000          # Reduced from 30000ms for faster response
+    connection_pool_size: 100
+
+    max_message_size: 208715200
+    max_receive_message_size_mb: 200
+    max_send_message_size_mb: 100
+
+    keepalive_time_ms: 60000
+    keepalive_timeout_ms: 20000
+    keepalive_time_seconds: 60
+    keepalive_timeout_seconds: 20
+    max_connection_idle_seconds: 300
+    max_connection_age_seconds: 0
+    max_connection_age_grace_seconds: 10
+
+    otlp_traces_enabled: true
+    otlp_metrics_enabled: true
+    otlp_logs_enabled: true
+
+    worker_threads: 4
+    max_concurrent_streams: 1000
+
+    compression_enabled: true
+    accepted_compression_algorithms: ["gzip", "zstd"]
+
+    tls:
+      enabled: false
+      cert_path: "${TLS_CERT_PATH}"
+      key_path: "${TLS_KEY_PATH}"
+
+  http:
+    port: 4318
+    max_concurrent_requests: 5000
+    request_timeout_ms: 30000
+    max_payload_size_mb: 100
+
+  otlp_batching:
+    enabled: true
+    max_spans_per_batch: 10000
+    max_batch_bytes: 50000000
+    flush_interval_secs: 5
+    max_messages_per_batch: 1000
+
+storage:
+  backend: "local"
+  data_dir: "/openwit/data/storage"
+  parquet_split_size_mb: 500
+
+  local:
+    enabled: true
+    path: "/openwit/data/storage"
+    max_disk_usage_percent: 80
+    cleanup_interval_seconds: 3600
+
+  azure:
+    enabled: false
+    account_name: "${AZURE_STORAGE_ACCOUNT}"
+    container_name: "${AZURE_STORAGE_CONTAINER}"
+    access_key: "${AZURE_STORAGE_ACCESS_KEY}"
+    prefix: "openwit/storage"
+    endpoint: "${AZURE_STORAGE_ENDPOINT}"
+
+  s3:
+    enabled: false
+    bucket: "${S3_BUCKET_NAME}"
+    region: "${S3_REGION}"
+    access_key_id: "${AWS_ACCESS_KEY_ID}"
+    secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+    prefix: "openwit/storage"
+
+  gcs:
+    enabled: false
+    bucket: "${GCS_BUCKET_NAME}"
+    service_account_key: "${GCS_SERVICE_ACCOUNT_KEY}"
+
+  parquet:
+    row_group_size: 1000000
+    compression_codec: "zstd"
+    compression_level: 3
+    enable_statistics: true
+    data_page_size_kb: 1024
+
+  write_buffer:
+    max_rows: 50000
+    flush_interval_secs: 30
+    max_memory_mb: 512
+
+  partitioning:
+    enabled: true
+    structure: "year/month/day"
+
+  file_rotation:
+    file_size_mb: 256
+    file_duration_minutes: 60
+    idle_timeout_minutes: 5
+    enable_active_stable_files: true
+    upload_delay_minutes: 2
+
+  local_retention:
+    retention_days: 7
+    cleanup_interval_hours: 1
+    delete_after_upload: false
+
+  performance:
+    max_concurrent_batches: 8
+    metadata_cache_ttl_secs: 600
+    query_cache_ttl_secs: 300
+
+
+storage_node:
+  grpc:
+    bind_addr: "0.0.0.0:8082"
+  flight:
+    bind_addr: "0.0.0.0:9401"
+  cache:
+    max_size_mb: 1024
+    ttl_seconds: 3600
+
+networking:
+  service_endpoints:
+    control_plane: "http://localhost:7019"
+    storage: "http://localhost"
+    ingestion: "http://localhost"
+    indexer: "http://localhost"
+    search: "http://localhost:8083"
+
+  inter_node:
+    connection_timeout_ms: 5000
+    request_timeout_ms: 30000
+    max_connections_per_node: 10
+    keepalive_interval_ms: 10000
+
+
+memory:
+  max_memory_gb: 32
+
+
+metastore:
+  backend: "sled"  # Options: sled, postgres
+
+  sled:
+    path: "./data/metastore"
+    cache_size_mb: 512
+
+  # PostgreSQL
+  postgres:
+    connection_string: "${DATABASE_URL}"
+    max_connections: 20
+
+
+# INDEXING CONFIGURATION
+indexing:
+  enabled: true
+  batch_size: 1000
+  worker_threads: 4
+
+
+# SEARCH CONFIGURATION
+search:
+  enabled: true
+  max_results: 1000
+
+
+# JANITOR CONFIGURATION
+janitor:
+  cleanup_interval_seconds: 3600
+  retention_days: 30
+
+# DEVELOPMENT CONFIGURATION
+development:
+  skip_health_checks: false
+
+# PERFORMANCE TESTING CONFIGURATION
+performance_testing:
+  enabled: false
+
+# SERVICE PORTS CONFIGURATION
+service_ports:
+  control_plane:
+    service: 7019
+  storage:
+    service: 8081
+    arrow_flight: 9401
+  ingestion:
+    grpc: 50051
+    http: 4318
+    arrow_flight: 8089
+  indexer:
+    service: 8085
+    arrow_flight: 8090
+  proxy:
+    service: 8080
+  search:
+    service: 8083
+    grpc: 50059

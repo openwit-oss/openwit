@@ -1,0 +1,60 @@
+[package]
+name = "openwit-source-gateway"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "openwit-source-gateway"
+path = "src/bin/main.rs"
+
+[dependencies]
+# Async runtime
+tokio = { workspace = true }
+async-trait = "0.1"
+
+# Web framework
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+
+# gRPC
+tonic = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+
+# Schema validation
+jsonschema = "0.18"
+schemars = { version = "0.8", features = ["derive"] }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# OpenTelemetry
+opentelemetry = { workspace = true }
+opentelemetry-proto = { workspace = true }
+
+# Internal dependencies
+openwit-proto = { path = "../openwit-proto" }
+openwit-config = { path = "../openwit-config" }
+openwit-common = { path = "../openwit-common" }
+openwit_ingestion = { path = "../openwit_ingestion" }
+
+# Other
+uuid = { workspace = true }
+chrono = { workspace = true }
+lazy_static = { workspace = true }
+regex = "1.10"
+clap = { workspace = true }
+
+[dev-dependencies]
+reqwest = { version = "0.11", features = ["json"] }

@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package openwit.ingest.v1;
+
+service IngestService {
+    // Single request ingestion
+    rpc Ingest(IngestRequest) returns (IngestResponse);
+    
+    // Streaming ingestion
+    rpc IngestStream(stream IngestRequest) returns (IngestResponse);
+}
+
+message IngestRequest {
+    repeated LogEntry entries = 1;
+}
+
+message LogEntry {
+    string timestamp = 1;
+    string level = 2;
+    string service = 3;
+    string message = 4;
+    optional string trace_id = 5;
+    map<string, string> metadata = 6;
+}
+
+message IngestResponse {
+    bool success = 1;
+    string message = 2;
+    int32 accepted_count = 3;
+}

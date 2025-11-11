@@ -1,0 +1,86 @@
+[package]
+name = "openwit-storage"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "openwit-storage"
+path = "src/main.rs"
+
+
+# [[bin]]
+# name = "test-storage-query"
+# path = "src/bin/test_storage_query.rs"
+
+# [[bin]]
+# name = "validate-parquet"
+# path = "src/bin/validate_parquet.rs"
+
+# [[bin]]
+# name = "simple-query-test"
+# path = "src/bin/simple_query_test.rs"
+
+# [[bin]]
+# name = "test-complex-parquet"
+# path = "src/bin/test_complex_parquet.rs"
+
+# [[bin]]
+# name = "test-map-access"
+# path = "src/bin/test_map_access.rs"
+
+[dependencies]
+# Async runtime
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+futures = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+async-trait = { workspace = true }
+
+# Data handling
+serde = { workspace = true }
+serde_json = { workspace = true }
+bytes = { workspace = true }
+chrono = { workspace = true }
+ulid = { workspace = true }
+
+# Parquet support
+arrow = { workspace = true }
+arrow-array = { workspace = true }
+arrow-schema = { workspace = true }
+regex = { version = "1" }
+parquet = { workspace = true }
+
+# Compression
+zstd = { workspace = true }
+
+# DataFusion for SQL query execution
+datafusion = { workspace = true }
+
+# gRPC support
+tonic = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+
+# Internal deps
+openwit-inter-node = { workspace = true }
+openwit-proto = { workspace = true }
+openwit-config = { workspace = true }
+
+# Cloud storage
+azure_storage = "0.20"
+azure_storage_blobs = "0.20"
+aws-config = "1.5"
+aws-sdk-s3 = "1.47"
+
+# Caching and performance
+lru = "0.12"
+sha2 = "0.10"
+object_store = { workspace = true }
+arrow-flight = { workspace = true }
+num_cpus = "1.16"
+base64 = "0.21"
+
+[dev-dependencies]
+tempfile = { workspace = true }

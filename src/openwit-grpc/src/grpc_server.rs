@@ -1,0 +1,126 @@
+use tokio::sync::mpsc;
+use tonic::transport::Server;
+use anyhow::{Context as AnyhowContext, Result};
+use std::net::SocketAddr;
+use std::sync::Arc;
+
+use opentelemetry_proto::tonic::collector::{
+    logs::v1::logs_service_server::LogsServiceServer as OtlpLogsServiceServer,
+    metrics::v1::metrics_service_server::MetricsServiceServer as OtlpMetricsServiceServer,
+    trace::v1::trace_service_server::TraceServiceServer as OtlpTraceServiceServer,
+};
+
+use openwit_config::UnifiedConfig;
+use crate::otlp_services::{OtlpTraceService, OtlpMetricsService, OtlpLogsService};
+
+type TelemetryOutputSender = mpsc::Sender<String>;
+
+pub struct GrpcServer {
+    config: Arc<UnifiedConfig>,
+    ingest_tx: Option<mpsc::Sender<openwit_ingestion::IngestedMessage>>,
+}
+
+impl GrpcServer {
+    pub fn new(config: UnifiedConfig, ingest_tx: Option<mpsc::Sender<openwit_ingestion::IngestedMessage>>) -> Self {
+        Self {
+            config: Arc::new(config),
+            ingest_tx,
+        }
+    }
+
+    pub async fn start(self) -> Result<()> {
+        let grpc_cfg = &self.config.ingestion.sources.grpc;
+        
+        if !grpc_cfg.enabled {
+            tracing::info!("gRPC server disabled via config");
+            return Ok(());
+        }
+
+        let grpc_bind_addr = if self.config.ingestion.grpc.bind.contains(':') {
+            self.config.ingestion.grpc.bind.clone()
+        } else {
+            format!("{}:{}", self.config.ingestion.grpc.bind, self.config.ingestion.grpc.port)
+        };
+        tracing::info!("Starting gRPC OTLP server on {}", grpc_bind_addr);
+
+        // Create telemetry output channel
+        let (output_tx, mut output_rx): (TelemetryOutputSender, mpsc::Receiver<String>) =
+            mpsc::channel(100);
+
+        // Spawn task for printing received telemetry data
+        tokio::spawn(async move {
+            tracing::info!("Telemetry Output Processor: Task started.");
+            while let Some(message) = output_rx.recv().await {
+                println!("{}", message);
+            }
+            tracing::info!("Telemetry Output Processor: Channel closed. Task finished.");
+        });
+
+        // Create services
+        let mut trace_service = OtlpTraceService::new(output_tx.clone());
+        let mut metrics_service = OtlpMetricsService::new(output_tx.clone());
+        let mut logs_service = OtlpLogsService::new(output_tx);
+        
+        // Add ingestion support if available
+        if let Some(ref ingest_tx) = self.ingest_tx {
+            trace_service = trace_service.with_ingestion(ingest_tx.clone());
+            metrics_service = metrics_service.with_ingestion(ingest_tx.clone());
+            logs_service = logs_service.with_ingestion(ingest_tx.clone());
+        }
+
+        let otlp_grpc_listen_address: SocketAddr = grpc_bind_addr
+            .parse()
+            .with_context(|| format!("Invalid OTLP gRPC listen address: '{}'", grpc_bind_addr))?;
+
+        tracing::info!(
+            "OTLP/gRPC Server: Preparing to listen on {}",
+            otlp_grpc_listen_address
+        );
+
+        // Build server with optional TLS support
+        let server_builder = if self.config.ingestion.grpc.tls.enabled {
+            // Load TLS certificates
+            let cert_path = &self.config.ingestion.grpc.tls.cert_path;
+            let key_path = &self.config.ingestion.grpc.tls.key_path;
+            
+            if cert_path.is_none() || key_path.is_none() {
+                tracing::warn!("TLS enabled but cert_path or key_path is not configured, falling back to unencrypted");
+                Server::builder()
+            } else {
+                let cert_path = cert_path.as_ref().unwrap();
+                let key_path = key_path.as_ref().unwrap();
+                // TLS support requires tonic tls feature - disabled for now
+                tracing::warn!("TLS is configured but not implemented - requires tonic TLS feature. Using unencrypted connection.");
+                Server::builder()
+            }
+        } else {
+            tracing::info!("TLS disabled for gRPC server");
+            Server::builder()
+        };
+        
+        server_builder
+            .trace_fn(|http_request: &http::Request<()>| {
+                tracing::info_span!(
+                    "OTLP gRPC Request",
+                    grpc.method = %http_request.method(),
+                    grpc.path = %http_request.uri().path(),
+                    grpc.version = ?http_request.version(),
+                )
+            })
+            .add_service(OtlpTraceServiceServer::new(trace_service)
+                    .max_encoding_message_size(self.config.ingestion.grpc.max_message_size)
+                    .max_decoding_message_size(self.config.ingestion.grpc.max_message_size)
+                )
+            .add_service(OtlpMetricsServiceServer::new(metrics_service)
+                    .max_encoding_message_size(self.config.ingestion.grpc.max_message_size)
+                    .max_decoding_message_size(self.config.ingestion.grpc.max_message_size)
+                )
+            .add_service(OtlpLogsServiceServer::new(logs_service)
+                    .max_encoding_message_size(self.config.ingestion.grpc.max_message_size)
+                    .max_decoding_message_size(self.config.ingestion.grpc.max_message_size)
+                )
+            .serve(otlp_grpc_listen_address)
+            .await
+            .context("OTLP gRPC server failed to run")
+    }
+}

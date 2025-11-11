@@ -1,0 +1,92 @@
+[package]
+name = "openwit_ingestion"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+# rdkafka = { workspace = true } # Only openwit-proxy should consume from Kafka
+prost = { workspace = true }
+opentelemetry-proto = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+tokio-stream = { workspace = true }
+async-trait = { workspace = true }
+dashmap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+once_cell = { workspace = true }
+# hex = { workspace = true } # Removed - was only used by OTLP decoders
+bincode = { workspace = true }
+zstd = { workspace = true }
+crc32fast = { workspace = true }
+thiserror = { workspace = true }
+moka = { workspace = true }
+uuid = { workspace = true }
+sqlx = { workspace = true }
+num_cpus = { workspace = true }
+crossbeam = { workspace = true }
+parking_lot = { workspace = true }
+sysinfo = { workspace = true }
+
+openwit-config = { workspace = true }
+openwit-metrics = { workspace = true }
+openwit-control-plane = { workspace = true }
+openwit-inter-node = { workspace = true }
+openwit-network = { workspace = true }
+openwit-proto = { workspace = true }
+openwit-storage = { workspace = true }
+futures = { workspace = true }
+bytes = { workspace = true }
+tonic = { workspace = true }
+arrow = { workspace = true }
+arrow-flight = { workspace = true }
+async-stream = { workspace = true }
+chrono = { workspace = true }
+base64 = { workspace = true }
+axum.workspace = true
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }
+sysinfo = { workspace = true }
+chrono = { workspace = true }
+
+[[example]]
+name = "direct_performance_test"
+path = "examples/direct_performance_test.rs"
+
+[[example]]
+name = "multi_threaded_performance_test"
+path = "examples/multi_threaded_performance_test.rs"
+
+[[example]]
+name = "optimized_parallel_test"
+path = "examples/optimized_parallel_test.rs"
+
+[[example]]
+name = "billion_logs_comparison"
+path = "examples/billion_logs_comparison.rs"
+
+[[example]]
+name = "simple_billion_comparison"
+path = "examples/simple_billion_comparison.rs"
+
+[[example]]
+name = "direct_billion_test"
+path = "examples/direct_billion_test.rs"
+
+[[example]]
+name = "system_metrics_test"
+path = "examples/system_metrics_test.rs"
+
+[[example]]
+name = "show_sample_logs"
+path = "examples/show_sample_logs.rs"
+
+[[example]]
+name = "show_json_messages"
+path = "examples/show_json_messages.rs"
+
+[[example]]
+name = "memory_analysis"
+path = "examples/memory_analysis.rs"

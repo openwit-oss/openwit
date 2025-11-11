@@ -1,0 +1,49 @@
+[package]
+name = "openwit-janitor"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Core dependencies
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+
+# Internal dependencies
+openwit-common = { workspace = true }
+openwit-config = { workspace = true }
+openwit-storage = { workspace = true }
+openwit-indexer = { workspace = true }
+openwit_ingestion = { workspace = true }
+openwit-metastore = { workspace = true }
+
+# Time handling
+chrono = { workspace = true }
+
+# Tantivy for index management
+tantivy = { workspace = true }
+
+# File system operations
+walkdir = "2.4"
+fs2 = "0.4"
+
+# Scheduling
+tokio-cron-scheduler = "0.11"
+
+# Metrics
+metrics = { workspace = true }
+
+# CLI
+clap = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.8"
+
+[[bin]]
+name = "openwit-janitor"
+path = "src/bin/openwit-janitor.rs"

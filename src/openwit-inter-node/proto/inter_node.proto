@@ -1,0 +1,168 @@
+syntax = "proto3";
+
+package inter_node;
+
+import "google/protobuf/timestamp.proto";
+
+// Data transfer messages
+message DataChunk {
+    string transfer_id = 1;
+    uint32 sequence_number = 2;
+    bytes data = 3;
+    bool is_final = 4;
+    uint64 total_size = 5;
+    string checksum = 6;
+}
+
+message TransferRequest {
+    string transfer_id = 1;
+    string source_node = 2;
+    string destination_node = 3;
+    TransferType transfer_type = 4;
+    uint64 estimated_size = 5;
+    map<string, string> metadata = 6;
+}
+
+enum TransferType {
+    TRANSFER_TYPE_UNKNOWN = 0;
+    TRANSFER_TYPE_BUFFERED_DATA = 1;
+    TRANSFER_TYPE_WAL_SEGMENT = 2;
+    TRANSFER_TYPE_INDEX_SHARD = 3;
+    TRANSFER_TYPE_SEARCH_RESULT = 4;
+    TRANSFER_TYPE_BACKUP = 5;
+}
+
+message TransferResponse {
+    string transfer_id = 1;
+    bool accepted = 2;
+    string error = 3;
+    TransferStatus status = 4;
+}
+
+message TransferStatus {
+    string transfer_id = 1;
+    TransferState state = 2;
+    uint64 bytes_transferred = 3;
+    uint64 total_bytes = 4;
+    double progress_percent = 5;
+    google.protobuf.Timestamp started_at = 6;
+    google.protobuf.Timestamp updated_at = 7;
+    string error = 8;
+}
+
+enum TransferState {
+    TRANSFER_STATE_UNKNOWN = 0;
+    TRANSFER_STATE_PENDING = 1;
+    TRANSFER_STATE_IN_PROGRESS = 2;
+    TRANSFER_STATE_COMPLETED = 3;
+    TRANSFER_STATE_FAILED = 4;
+    TRANSFER_STATE_CANCELLED = 5;
+}
+
+// Node capability advertisement
+message NodeCapabilities {
+    string node_id = 1;
+    string node_type = 2; // ingestion, indexer, search, storage
+    repeated string supported_operations = 3;
+    ResourceAvailability resources = 4;
+    repeated string active_transfers = 5;
+}
+
+message ResourceAvailability {
+    uint64 available_memory_bytes = 1;
+    uint64 available_disk_bytes = 2;
+    double cpu_idle_percent = 3;
+    double network_bandwidth_mbps = 4;
+}
+
+// Command execution
+message NodeCommand {
+    string command_id = 1;
+    string source_node = 2; // Usually control plane
+    oneof command {
+        StartTransfer start_transfer = 3;
+        CancelTransfer cancel_transfer = 4;
+        FlushBuffer flush_buffer = 5;
+        CompactData compact_data = 6;
+        CleanupDisk cleanup_disk = 7;
+    }
+}
+
+message StartTransfer {
+    string target_node = 1;
+    TransferType transfer_type = 2;
+    map<string, string> parameters = 3;
+}
+
+message CancelTransfer {
+    string transfer_id = 1;
+}
+
+message FlushBuffer {
+    string buffer_type = 1;
+    bool force = 2;
+}
+
+message CompactData {
+    repeated string data_ids = 1;
+}
+
+message CleanupDisk {
+    uint64 target_free_bytes = 1;
+    uint32 retention_days = 2;
+}
+
+message CommandResponse {
+    string command_id = 1;
+    bool success = 2;
+    string error = 3;
+    map<string, string> result = 4;
+}
+
+// Health and metrics
+message NodeHealth {
+    string node_id = 1;
+    bool is_healthy = 2;
+    repeated HealthCheck checks = 3;
+    google.protobuf.Timestamp timestamp = 4;
+}
+
+message HealthCheck {
+    string name = 1;
+    bool passed = 2;
+    string message = 3;
+    double latency_ms = 4;
+}
+
+// Service definitions
+service InterNodeService {
+    // Data transfer operations
+    rpc InitiateTransfer(TransferRequest) returns (TransferResponse);
+    rpc StreamData(stream DataChunk) returns (stream TransferStatus);
+    rpc GetTransferStatus(TransferStatusRequest) returns (TransferStatus);
+    
+    // Command execution
+    rpc ExecuteCommand(NodeCommand) returns (CommandResponse);
+    rpc StreamCommands(stream CommandResponse) returns (stream NodeCommand);
+    
+    // Node discovery and health
+    rpc RegisterNode(NodeCapabilities) returns (RegistrationAck);
+    rpc StreamNodeUpdates(stream NodeCapabilities) returns (stream NodeCommand);
+    rpc HealthCheck(HealthCheckRequest) returns (NodeHealth);
+}
+
+// Request messages
+message TransferStatusRequest {
+    string transfer_id = 1;
+}
+
+message RegistrationAck {
+    bool accepted = 1;
+    string node_id = 2;
+    repeated string peer_nodes = 3;
+}
+
+message HealthCheckRequest {
+    string node_id = 1;
+    bool detailed = 2;
+}

@@ -1,0 +1,46 @@
+[package]
+name = "openwit-perf-test"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { version = "1.6", features = ["v4"] }
+rand = "0.8"
+indicatif = "0.17"
+hdrhistogram = "7.5"
+num-format = "0.4"
+
+# OpenTelemetry for generating test data
+opentelemetry = "0.23"
+opentelemetry-proto = { workspace = true }
+prost = { workspace = true }
+tonic = { workspace = true }
+
+# Internal deps
+openwit_ingestion = { workspace = true }
+openwit-config = { workspace = true }
+
+# For bins
+clap = { version = "4.0", features = ["derive"] }
+reqwest = { version = "0.11", features = ["json"] }
+sysinfo = "0.30"
+# rdkafka = { workspace = true } # Only openwit-proxy should consume from Kafka
+
+[[bin]]
+name = "perf-test"
+path = "src/bin/perf_test.rs"
+
+[[bin]]
+name = "load-gen"
+path = "src/bin/load_generator.rs"
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"

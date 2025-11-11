@@ -1,0 +1,60 @@
+[package]
+name = "openwit-search"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Async runtime
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+futures = { workspace = true }
+
+# HTTP server
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+
+# Internal dependencies
+openwit-common = { workspace = true }
+openwit-config = { workspace = true }
+openwit-proto = { workspace = true }
+openwit-control-plane = { workspace = true }
+openwit-network = { workspace = true }
+
+# HTTP client
+reqwest = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+
+# Async
+async-trait = { workspace = true }
+
+# gRPC
+tonic = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+base64 = { workspace = true }
+
+# Arrow dependencies (for types)
+arrow-array = { workspace = true }
+arrow-schema = { workspace = true }
+
+# DataFusion for Azure queries
+datafusion = { workspace = true }
+object_store = { workspace = true }
+url = "2.5"
+
+# Other dependencies
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+gethostname = "0.4"
+
+[dev-dependencies]
+tempfile = { workspace = true }

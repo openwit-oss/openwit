@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package openwit.ingestion;
+
+import "google/protobuf/timestamp.proto";
+
+// Service for telemetry data ingestion
+service TelemetryIngestionService {
+    // Send a batch of telemetry data
+    rpc IngestTelemetryBatch(TelemetryIngestRequest) returns (TelemetryIngestResponse);
+    
+    // Stream telemetry data for lower latency
+    rpc IngestTelemetryStream(stream TelemetryData) returns (stream TelemetryIngestStatus);
+}
+
+// Request containing a batch of telemetry data
+message TelemetryIngestRequest {
+    string source_node_id = 1;
+    string batch_id = 2;
+    repeated TelemetryData messages = 3;
+
+    // Kafka offset information for safe commits
+    string client_id = 4;         // Kafka client/consumer ID
+    repeated KafkaOffset offsets = 5;  // Offsets to commit after WAL write
+}
+
+// Kafka offset information
+message KafkaOffset {
+    string topic = 1;
+    int32 partition = 2;
+    int64 offset = 3;      // The next offset to read (current + 1)
+}
+
+// Individual telemetry data message
+message TelemetryData {
+    string id = 1;                              // Unique message ID
+    string source = 2;                          // Source identifier (e.g., "http-logs", "kafka-traces")
+    int32 partition = 3;                        // Partition ID (for ordered processing)
+    int64 sequence = 4;                         // Sequence number
+    google.protobuf.Timestamp timestamp = 5;     // Message timestamp
+    string payload_json = 6;                     // JSON payload (logs/traces/metrics)
+    string payload_type = 7;                     // "trace", "log", "metric"
+    int32 size_bytes = 8;                       // Message size
+    map<string, string> headers = 9;            // Message headers (e.g., index_name)
+}
+
+// Response for batch ingestion
+message TelemetryIngestResponse {
+    bool success = 1;
+    string message = 2;
+    int32 accepted_count = 3;
+    int32 rejected_count = 4;
+    repeated string rejected_ids = 5;
+
+    // WAL and storage status for safe Kafka offset commits
+    bool wal_written = 6;        // True if batch was written to WAL
+    bool storage_written = 7;     // True if batch was written to storage
+    string wal_path = 8;          // Path to WAL file for debugging
+    int64 wal_write_time_ms = 9;  // Time taken to write to WAL
+}
+
+// Status for streaming ingestion
+message TelemetryIngestStatus {
+    string message_id = 1;
+    bool accepted = 2;
+    string error = 3;
+}

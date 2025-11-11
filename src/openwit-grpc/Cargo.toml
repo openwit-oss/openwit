@@ -1,0 +1,38 @@
+[package]
+name = "openwit-grpc"
+version.workspace = true
+edition.workspace = true
+authors = ["OpenWit Team"]
+description = "gRPC OTLP service for OpenWit"
+
+[[bin]]
+name = "openwit-grpc"
+path = "src/main.rs"
+
+[dependencies]
+# Core dependencies
+tokio = { workspace = true }
+tonic = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+http = { workspace = true }
+chrono = { workspace = true }
+prost = { workspace = true }
+hex = { workspace = true }
+uuid = { workspace = true }
+base64 = { workspace = true }
+
+# OpenTelemetry protocol dependencies
+opentelemetry-proto = { workspace = true }
+
+# Internal dependencies
+openwit-metrics = { workspace = true }
+openwit-config = { workspace = true }
+openwit_ingestion = { workspace = true }
+
+# CLI and config
+clap = { workspace = true }
+serde_yaml = { workspace = true }
+tracing-subscriber = { workspace = true }

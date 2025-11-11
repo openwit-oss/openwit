@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+package openwit.indexer.v1;
+
+service IndexService {
+  // Prefer combined manifests; fall back to deltas if no combined exists.
+  rpc GetCoverage (CoverageRequest) returns (CoverageReply);
+
+  // (Optional) Server-side pruning: send predicates, get split list
+  rpc Prune (PruneRequest) returns (PruneReply);
+
+  // Health & metrics
+  rpc Healthz(HealthRequest) returns (HealthReply);
+
+  // Direct notification from storage nodes about new data files
+  rpc NotifyDataFilePublished(DataFileNotification) returns (DataFileNotificationReply);
+}
+
+// CoverageRequest: tenant/signal/time window
+message CoverageRequest {
+  string tenant = 1;
+  string signal = 2;              // "logs" | "traces" | "metrics"
+  int64  from_unix_ms = 3;
+  int64  to_unix_ms = 4;
+  bool   prefer_combined_only = 5; // default true
+}
+
+message CoverageReply {
+  repeated Manifest manifests = 1; // ordered: day, hour, then deltas
+}
+
+message Manifest {
+  string partition_key = 1;
+  string level = 2;                // "day" | "hour" | "delta"
+  string manifest_url = 3;         // for combined
+  repeated Delta deltas = 4;       // if level == "delta"
+}
+
+message Delta {
+  string file_ulid = 1;
+  string partition_key = 2;
+  string zone_map_url = 3;
+  string bloom_url = 4;
+  string bitmap_url = 5;
+  repeated string tantivy_segments = 6;
+}
+
+message PruneRequest {
+  string tenant = 1;
+  string signal = 2;
+  int64 from_unix_ms = 3;
+  int64 to_unix_ms = 4;
+  repeated Predicate predicates = 5;  // equality/IN/range + optional full_text
+  repeated string columns_needed = 6; // projection hint
+}
+
+message Predicate {
+  string col = 1;
+  string op = 2;                // "=", "IN", ">", "<", "BETWEEN"
+  repeated string s = 3;        // string vals
+  repeated int64 i = 4;         // numeric vals
+  FullText ft = 5;              // optional
+}
+
+message FullText { 
+  string field = 1; 
+  string query = 2; 
+}
+
+message PruneReply {
+  repeated Split splits = 1;
+  repeated string projection = 2;
+}
+
+message Split {
+  string file_ulid = 1;
+  string parquet_url = 2;
+  repeated int32 row_groups = 3;
+}
+
+message HealthRequest {
+  // empty for now
+}
+
+message HealthReply {
+  bool healthy = 1;
+  string status = 2;
+  map<string, string> metrics = 3;
+}
+
+// Direct notification from storage nodes
+message DataFileNotification {
+  string file_ulid = 1;
+  string tenant = 2;
+  string signal = 3;
+  string partition_key = 4;
+  string parquet_url = 5;
+  int64 size_bytes = 6;
+  int64 row_count = 7;
+  int64 min_timestamp = 8;
+  int64 max_timestamp = 9;
+  string storage_node_id = 10;
+}
+
+message DataFileNotificationReply {
+  bool success = 1;
+  string message = 2;
+}

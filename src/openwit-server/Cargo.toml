@@ -1,0 +1,58 @@
+[package]
+name = "openwit-server"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+clap = { workspace = true }
+flate2 = { workspace = true }
+
+http = { workspace = true }
+prost = { workspace = true }
+
+axum = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+opentelemetry-proto = { workspace = true }
+chrono = { workspace = true }
+
+openwit-proto = { workspace = true }
+openwit-common = { workspace = true }
+openwit-metrics = { workspace = true }
+openwit-config = { workspace = true }
+openwit-actors = { workspace = true }
+openwit-network = { workspace = true }
+openwit-storage = { workspace = true }
+openwit-transformations = { workspace = true }
+openwit_ingestion = { workspace = true }
+openwit-indexer = { workspace = true }
+openwit-metastore = { workspace = true }
+openwit-http = { workspace = true }
+openwit-grpc = { workspace = true }
+openwit-kafka = { workspace = true }
+uuid = { workspace = true }
+hex = { workspace = true }
+base64 = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+datafusion = { workspace = true }
+futures = { workspace = true }
+arrow = { workspace = true }
+parquet = { workspace = true }
+regex = { workspace = true }
+opendal = { workspace = true }
+
+hyper = { workspace = true }
+
+
+#[build-dependencies]
+#tonic-build = {workspace = true}
+#prost-build = {workspace = true}
+
+
