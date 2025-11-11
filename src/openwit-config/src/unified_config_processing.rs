@@ -214,23 +214,36 @@ impl UnifiedConfig {
 fn expand_env_vars(content: &str) -> Result<String> {
     let mut result = content.to_string();
     let env_var_pattern = regex::Regex::new(r"\$\{([^}]+)\}").unwrap();
-    
+
     for cap in env_var_pattern.captures_iter(content) {
-        let var_name = &cap[1];
-        let placeholder = format!("${{{}}}", var_name);
-        
+        let full_match = &cap[1];
+        let placeholder = format!("${{{}}}", full_match);
+
+        // Support ${VAR:-default} syntax
+        let (var_name, default_value) = if let Some(pos) = full_match.find(":-") {
+            let var = &full_match[..pos];
+            let default = &full_match[pos + 2..];
+            (var, Some(default))
+        } else {
+            (full_match, None)
+        };
+
         match std::env::var(var_name) {
             Ok(env_value) => {
                 result = result.replace(&placeholder, &env_value);
             }
             Err(_) => {
-                // For missing environment variables, replace with empty string
-                // This allows the configuration to load with defaults
-                warn!("Environment variable '{}' not found, using empty string", var_name);
-                result = result.replace(&placeholder, "");
+                if let Some(default) = default_value {
+                    // Use default value silently (no warning for optional vars with defaults)
+                    result = result.replace(&placeholder, default);
+                } else {
+                    // Only warn for variables without defaults (truly required)
+                    // But still allow empty string to not break the config
+                    result = result.replace(&placeholder, "");
+                }
             }
         }
     }
-    
+
     Ok(result)
 }

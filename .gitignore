@@ -3,6 +3,7 @@
 **/*.rs.bk
 Cargo.lock
 /docs
+.cargo
 
 # IDE
 .idea

@@ -5,7 +5,14 @@ use opentelemetry_proto::tonic::collector::trace::v1::ExportTraceServiceRequest;
 
 use std::sync::OnceLock;
 use tokio::sync::mpsc::Sender;
-use openwit_actors::kafka_messages::KafkaTraceMessage;
+
+// Moved from openwit-actors (legacy, not actively used)
+#[derive(Debug)]
+pub struct KafkaTraceMessage {
+    pub topic: String,
+    pub key: Option<String>,
+    pub export_req: ExportTraceServiceRequest,
+}
 
 static INGESTOR_TX: OnceLock<Sender<KafkaTraceMessage>> = OnceLock::new();
 

@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-use openwit_config::UnifiedConfig;
 use tracing_subscriber::{fmt, EnvFilter};
 use tracing_subscriber::prelude::*;
 use std::env;
@@ -7,108 +6,19 @@ use std::path::Path;
 use anyhow::{Result};
 use tracing::{info, debug, warn, error};
 
-/// Apply monolith mode overrides to configuration
-fn apply_monolith_overrides(config: &mut UnifiedConfig) {
-    // Force deployment mode to monolith
-    if config.deployment.mode != "monolith" {
-        info!("Overriding deployment mode from '{}' to 'monolith'", config.deployment.mode);
-        config.deployment.mode = "monolith".to_string();
-    }
-    
-    // Disable Kubernetes in monolith mode
-    if config.deployment.kubernetes.enabled {
-        info!("Disabling Kubernetes for monolith mode");
-        config.deployment.kubernetes.enabled = false;
-    }
-    
-    // Force environment to local if it's set to kubernetes
-    if config.environment == "kubernetes" {
-        info!("Overriding environment from 'kubernetes' to 'local' for monolith mode");
-        config.environment = "local".to_string();
-    }
-    
-    // Disable distributed features
-    // Gossip functionality deprecated - no longer needed
-    
-    if config.control_plane.leader_election.enabled {
-        info!("Disabling leader election for monolith mode");
-        config.control_plane.leader_election.enabled = false;
-    }
-    
-    // Force local storage backend
-    if config.storage.backend != "local" {
-        info!("Overriding storage backend from '{}' to 'local' for monolith mode", config.storage.backend);
-        config.storage.backend = "local".to_string();
-        config.storage.local.enabled = true;
-        
-        // Disable cloud storage backends
-        config.storage.azure.enabled = false;
-        config.storage.s3.enabled = false;
-        config.storage.gcs.enabled = false;
-    }
-    
-    // Ensure local paths are set
-    if config.storage.local.path.is_empty() {
-        config.storage.local.path = "./data/storage".to_string();
-        info!("Setting local storage path to: {}", config.storage.local.path);
-    }
-    
-    if config.storage.data_dir.is_empty() {
-        config.storage.data_dir = "./data".to_string();
-        info!("Setting data directory to: {}", config.storage.data_dir);
-    }
-    
-    // Ensure metastore uses local backend
-    if config.metastore.backend != "sled" {
-        info!("Overriding metastore backend from '{}' to 'sled' for monolith mode", config.metastore.backend);
-        config.metastore.backend = "sled".to_string();
-    }
-    
-    if config.metastore.sled.path.is_empty() {
-        config.metastore.sled.path = "./data/metastore".to_string();
-        info!("Setting metastore path to: {}", config.metastore.sled.path);
-    }
-
-    if config.memory.heap.max_size_gb > 8 {
-        info!("Adjusting heap size from {}GB to 4GB for local development", config.memory.heap.max_size_gb);
-        config.memory.heap.max_size_gb = 4;
-    }
-
-    if config.memory.buffer_pool.size_mb > 2048 {
-        info!("Adjusting buffer pool from {}MB to 1024MB for local development", config.memory.buffer_pool.size_mb);
-        config.memory.buffer_pool.size_mb = 1024;
-    }
-
-    if !config.control_plane.enabled {
-        info!("Enabling control plane for monolith mode");
-        config.control_plane.enabled = true;
-    }
-
-    info!("Monolith mode overrides applied successfully");
-}
-
 // Import the config loader
 use openwit_cli::config_loader::ConfigLoader;
 use openwit_cli::ingestion_type::IngestionType;
 use openwit_cli::node_startup;
-use openwit_cli::auto_config::{AutoConfig, ServiceDiscovery};
-use openwit_cli::distributed_auto_config::{DistributedAutoConfig, cleanup_service_on_shutdown};
 use openwit_http::control_plane_integration::ControlPlaneIntegration;
 
 /// Detects if the application is running in a Kubernetes environment
 fn detect_kubernetes_environment() -> bool {
-    // Check for Kubernetes service account token
     if Path::new("/var/run/secrets/kubernetes.io/serviceaccount/token").exists() {
         return true;
     }
     
-    // Check for Kubernetes environment variables
-    if env::var("KUBERNETES_SERVICE_HOST").is_ok() {
-        return true;
-    }
-    
-    // Check for common Kubernetes pod environment variables
-    if env::var("KUBERNETES_PORT").is_ok() || 
+    if env::var("KUBERNETES_PORT").is_ok() ||
        env::var("KUBERNETES_PORT_443_TCP").is_ok() ||
        env::var("KUBERNETES_SERVICE_PORT").is_ok() ||
        env::var("KUBERNETES_SERVICE_PORT_HTTPS").is_ok() {
@@ -117,7 +27,6 @@ fn detect_kubernetes_environment() -> bool {
     
     // Check if running with a Kubernetes-style hostname
     if let Ok(hostname) = env::var("HOSTNAME") {
-        // Kubernetes pod names often follow patterns like "app-name-deployment-id-pod-id"
         if hostname.contains('-') && (hostname.len() > 20 || hostname.chars().filter(|c| *c == '-').count() >= 2) {
             // This is a heuristic - pods often have longer names with multiple hyphens
             return true;
@@ -130,152 +39,109 @@ fn detect_kubernetes_environment() -> bool {
 #[derive(Parser)]
 #[command(name = "openwit", about = "OpenWit Distributed Log Ingestion System", version, author)]
 struct Args {
-    /// Configuration file path (optional - will use default if not specified)
     #[arg(short, long)]
     config: Option<String>,
 
-    /// Create a sample configuration file
     #[arg(long)]
     create_sample_config: bool,
 
-    /// Ingestion type to enable (default: grpc for distributed nodes, all for monolith/proxy)
     #[arg(short, long, value_enum, default_value = "grpc")]
     ingestion: IngestionType,
 
-    /// Override Kafka brokers (only used when ingestion type includes Kafka)
     #[arg(long)]
     kafka_brokers: Option<String>,
 
-    /// Override gRPC port (only used when ingestion type includes gRPC)
     #[arg(long)]
     grpc_port: Option<u16>,
 
-    /// Override HTTP port (only used when ingestion type includes HTTP)
     #[arg(long)]
     http_port: Option<u16>,
 
-    /// Node type to run
     #[command(subcommand)]
-    node_type: Option<NodeCommand>,
+    node_type: NodeCommand,
 }
 
 #[derive(Subcommand)]
 enum NodeCommand {
-    /// Run the control plane node
     Control {
-        /// Service port - must be explicitly provided or configured in config.yaml
         #[arg(long)]
         port: Option<u16>,
-        /// Node ID for this control plane instance
         #[arg(long)]
         node_id: Option<String>,
     },
-    /// Run a proxy node for ingestion
+
     Proxy {
-        /// Service port
         #[arg(long, default_value = "8080")]
         port: u16,
-        /// Node ID for this proxy instance
         #[arg(long)]
         node_id: Option<String>,
     },
-    /// Run an ingestion node
+
     Ingest {
-        /// Service port (overrides config file)
         #[arg(long)]
         port: Option<u16>,
-        /// Node ID for this ingestion instance
         #[arg(long)]
         node_id: Option<String>,
-        /// Override gRPC bind address (e.g., 0.0.0.0:4317)
         #[arg(long)]
         grpc_bind: Option<String>,
 
-        /// Force gRPC mode even if disabled in config
         #[arg(long)]
         force_grpc: bool,
     },
-    /// Run a gRPC/OTLP ingestion node (alias for ingest --force-grpc)
+
     Grpc {
-        /// Service port (overrides config file)
         #[arg(long)]
         port: Option<u16>,
-        /// Node ID for this gRPC instance
         #[arg(long)]
         node_id: Option<String>,
-        /// Override gRPC bind address (e.g., 0.0.0.0:4317)
         #[arg(long)]
         grpc_bind: Option<String>,
     },
-    /// Run a storage node
+
     Storage {
-        /// Service port
         #[arg(long, default_value = "8081")]
         port: u16,
-        /// Node ID for this storage instance
         #[arg(long)]
         node_id: Option<String>,
     },
-    /// Run an indexer node
+
     Indexer {
-        /// Service port
         #[arg(long, default_value = "50060")]
         port: u16,
-        /// Node ID for this indexer instance
         #[arg(long)]
         node_id: Option<String>,
     },
-    /// Run a search node
+
     Search {
-        /// Service port (overrides config file)
         #[arg(long)]
         port: Option<u16>,
-        /// Node ID for this search instance
         #[arg(long)]
         node_id: Option<String>,
     },
-    /// Run a janitor node for maintenance
+
     Janitor {
-        /// Service port
         #[arg(long, default_value = "9090")]
         port: u16,
-        /// Node ID for this janitor instance
         #[arg(long)]
         node_id: Option<String>,
     },
-    /// Run a Kafka consumer node
+
     Kafka {
-        /// Node ID for this Kafka instance
         #[arg(long)]
         node_id: Option<String>,
-        /// Enable debug logging
         #[arg(short, long)]
         debug: bool,
     },
-    /// Run all services in a single process (monolith mode)
-    Monolith {
-        /// gRPC bind address
-        #[arg(long, default_value = "0.0.0.0:4317")]
-        grpc_addr: String,
-        /// Control plane bind address - must be explicitly provided or configured in config.yaml
-        #[arg(long)]
-        control_addr: Option<String>,
-    },
-    /// Run HTTP ingestion server
+
     Http {
-        /// HTTP bind address
         #[arg(long, default_value = "0.0.0.0:9087")]
         bind: String,
-        /// Node ID for this HTTP instance
         #[arg(long)]
         node_id: Option<String>,
-        /// Maximum concurrent requests
         #[arg(long, default_value = "5000")]
         max_concurrent_requests: u32,
-        /// Request timeout in milliseconds
         #[arg(long, default_value = "30000")]
         request_timeout_ms: u64,
-        /// Maximum payload size in MB
         #[arg(long, default_value = "100")]
         max_payload_size_mb: u32,
     },
@@ -301,10 +167,8 @@ async fn main() -> Result<()> {
     
     // Handle sample config creation
     if args.create_sample_config {
-        info!("Creating sample configuration file...");
         match ConfigLoader::create_sample_config("openwit-config-sample.yaml") {
             Ok(_) => {
-                info!("Sample configuration file created successfully at: openwit-config-sample.yaml");
                 return Ok(());
             }
             Err(e) => {
@@ -313,21 +177,9 @@ async fn main() -> Result<()> {
             }
         }
     }
-    
-    // Check if node type is specified when not creating sample config
-    let node_type = match args.node_type {
-        Some(nt) => nt,
-        None => {
-            // Default to monolith mode when no command is specified
-            info!("No command specified, defaulting to intelligent monolith mode");
-            info!("Tip: Use specific commands like 'control', 'proxy', 'ingest' for distributed mode");
-            NodeCommand::Monolith {
-                grpc_addr: "0.0.0.0:4317".to_string(),
-                control_addr: None,
-            }
-        }
-    };
-    
+
+    let node_type = args.node_type;
+
     // Detect environment
     let is_kubernetes = detect_kubernetes_environment();
     let environment = if is_kubernetes {
@@ -362,20 +214,14 @@ async fn main() -> Result<()> {
              config.environment, environment);
         config.environment = environment.to_string();
     }
-    
-    // For distributed nodes in local environment, adjust deployment settings
-    if environment == "local" && !matches!(node_type, NodeCommand::Monolith { .. }) {
+
+    // For local environment, adjust deployment settings for distributed mode
+    if environment == "local" {
         info!("Adjusting deployment settings for local distributed mode");
         config.deployment.mode = "standalone".to_string();
         config.deployment.kubernetes.enabled = false;
     }
-    
-    // Apply monolith mode overrides if running monolith command
-    if matches!(node_type, NodeCommand::Monolith { .. }) {
-        info!("Applying monolith mode configuration overrides...");
-        apply_monolith_overrides(&mut config);
-    }
-    
+
     // Apply ingestion type to configuration
     // For proxy nodes, override to enable all ingestion types
     let effective_ingestion_type = match &node_type {
@@ -475,7 +321,7 @@ async fn main() -> Result<()> {
     
     // Validate control plane configuration for nodes that need it
     match &node_type {
-        NodeCommand::Control { .. } | NodeCommand::Monolith { .. } => {
+        NodeCommand::Control { .. } => {
             // Check for empty endpoint
             if config.control_plane.grpc_endpoint.is_empty() {
                 return Err(anyhow::anyhow!(
@@ -489,8 +335,6 @@ async fn main() -> Result<()> {
                     "Control plane service port is not configured. Please set 'service_ports.control_plane.service' in your config.yaml"
                 ));
             }
-            
-            // Gossip port validation removed since gossip is deprecated
         }
         _ => {
             // For other nodes, validate that control plane endpoint is configured if they need to connect to it
@@ -516,43 +360,23 @@ async fn main() -> Result<()> {
     match node_type {
         NodeCommand::Control { port: _, node_id } => {
             let node_id = node_id.unwrap_or_else(|| generate_node_id("control"));
-            
-            // Use distributed auto-configuration with actual config
-            let auto_config = DistributedAutoConfig::with_config("control", node_id.clone(), &config);
-            let service_info = auto_config.configure_and_register(&mut config).await?;
-            
-            info!("Starting Control Plane node: {} on auto-selected port {}", node_id, service_info.service_port);
-            
-            // Register cleanup on shutdown
-            let cleanup_node_id = node_id.clone();
-            tokio::spawn(async move {
-                tokio::signal::ctrl_c().await.ok();
-                cleanup_service_on_shutdown(&cleanup_node_id).await.ok();
-            });
-            
-            node_startup::start_control_node(config, node_id, service_info.service_port).await?;
+
+            // Use configured port from config
+            let control_port = config.service_ports.control_plane.service;
+
+            info!("Starting Control Plane node: {} on port {}", node_id, control_port);
+
+            node_startup::start_control_node(config, node_id, control_port).await?;
         }
         NodeCommand::Proxy { port: _, node_id } => {
             let node_id = node_id.unwrap_or_else(|| generate_node_id("proxy"));
-            
-            // Use distributed auto-configuration with actual config
-            let auto_config = DistributedAutoConfig::with_config("proxy", node_id.clone(), &config);
-            let service_info = auto_config.configure_and_register(&mut config).await?;
-            auto_config.discover_services(&mut config).await?;
-            
-            info!("Starting Proxy node: {} on auto-selected port {}", node_id, service_info.service_port);
-            
-            // Print discovered services
-            println!("{}", auto_config.get_summary().await?);
-            
-            // Register cleanup on shutdown
-            let cleanup_node_id = node_id.clone();
-            tokio::spawn(async move {
-                tokio::signal::ctrl_c().await.ok();
-                cleanup_service_on_shutdown(&cleanup_node_id).await.ok();
-            });
-            
-            node_startup::start_proxy_node(config, node_id, service_info.service_port).await?;
+
+            // Use configured port from config
+            let proxy_port = config.service_ports.proxy.service;
+
+            info!("Starting Proxy node: {} on port {}", node_id, proxy_port);
+
+            node_startup::start_proxy_node(config, node_id, proxy_port).await?;
         }
         NodeCommand::Ingest { port, node_id, grpc_bind, force_grpc } => {
             let node_id = node_id.unwrap_or_else(|| generate_node_id("ingest"));
@@ -590,21 +414,9 @@ async fn main() -> Result<()> {
                 // Use command line port if provided, otherwise use config
                 port.unwrap_or(config.ingestion.grpc.port)
             };
-            
-            // Use distributed auto-configuration with actual config
-            let auto_config = DistributedAutoConfig::with_config("ingest", node_id.clone(), &config);
-            let _service_info = auto_config.configure_and_register(&mut config).await?;
-            auto_config.discover_services(&mut config).await?;
-            
+
             info!("Starting Ingestion node: {} with gRPC on port {}", node_id, grpc_port);
-            
-            // Register cleanup on shutdown
-            let cleanup_node_id = node_id.clone();
-            tokio::spawn(async move {
-                tokio::signal::ctrl_c().await.ok();
-                cleanup_service_on_shutdown(&cleanup_node_id).await.ok();
-            });
-            
+
             node_startup::start_ingest_node(config, node_id, grpc_port).await?;
         }
         NodeCommand::Grpc { port, node_id, grpc_bind } => {
@@ -631,11 +443,6 @@ async fn main() -> Result<()> {
                 }
             }
             
-            // Use distributed auto-configuration with actual config
-            let auto_config = DistributedAutoConfig::with_config("ingest", node_id.clone(), &config);
-            let _service_info = auto_config.configure_and_register(&mut config).await?;
-            auto_config.discover_services(&mut config).await?;
-            
             // Use the port from command line or config
             let grpc_port = if let Some(bind_addr) = &grpc_bind {
                 // Extract port from bind address
@@ -648,36 +455,20 @@ async fn main() -> Result<()> {
                 // Use command line port if provided, otherwise use config
                 port.unwrap_or(config.ingestion.grpc.port)
             };
-            
+
             info!("Starting gRPC/OTLP node: {} on port {}", node_id, grpc_port);
-            
-            // Register cleanup on shutdown
-            let cleanup_node_id = node_id.clone();
-            tokio::spawn(async move {
-                tokio::signal::ctrl_c().await.ok();
-                cleanup_service_on_shutdown(&cleanup_node_id).await.ok();
-            });
-            
+
             node_startup::start_ingest_node(config, node_id, grpc_port).await?;
         }
         NodeCommand::Storage { port: _, node_id } => {
             let node_id = node_id.unwrap_or_else(|| generate_node_id("storage"));
-            
-            // Use distributed auto-configuration with actual config
-            let auto_config = DistributedAutoConfig::with_config("storage", node_id.clone(), &config);
-            let service_info = auto_config.configure_and_register(&mut config).await?;
-            auto_config.discover_services(&mut config).await?;
-            
-            info!("Starting Storage node: {} on auto-selected port {}", node_id, service_info.service_port);
-            
-            // Register cleanup on shutdown
-            let cleanup_node_id = node_id.clone();
-            tokio::spawn(async move {
-                tokio::signal::ctrl_c().await.ok();
-                cleanup_service_on_shutdown(&cleanup_node_id).await.ok();
-            });
-            
-            node_startup::start_storage_node(config, node_id, service_info.service_port).await?;
+
+            // Use configured port from config
+            let storage_port = config.service_ports.storage.service;
+
+            info!("Starting Storage node: {} on port {}", node_id, storage_port);
+
+            node_startup::start_storage_node(config, node_id, storage_port).await?;
         }
         NodeCommand::Indexer { port, node_id } => {
             let node_id = node_id.unwrap_or_else(|| generate_node_id("indexer"));
@@ -686,24 +477,12 @@ async fn main() -> Result<()> {
         }
         NodeCommand::Search { port, node_id } => {
             let node_id = node_id.unwrap_or_else(|| generate_node_id("search"));
-            
-            // Use distributed auto-configuration
-            let auto_config = DistributedAutoConfig::with_config("search", node_id.clone(), &config);
-            let service_info = auto_config.configure_and_register(&mut config).await?;
-            auto_config.discover_services(&mut config).await?;
-            
-            // Use the port from command line if provided, otherwise use auto-selected port
-            let search_port = port.unwrap_or(service_info.service_port);
-            
+
+            // Use the port from command line if provided, otherwise use config
+            let search_port = port.unwrap_or(config.service_ports.search.service);
+
             info!("Starting Search node: {} on port {}", node_id, search_port);
-            
-            // Register cleanup on shutdown
-            let cleanup_node_id = node_id.clone();
-            tokio::spawn(async move {
-                tokio::signal::ctrl_c().await.ok();
-                cleanup_service_on_shutdown(&cleanup_node_id).await.ok();
-            });
-            
+
             node_startup::start_search_node(config, node_id, search_port).await?;
         }
         NodeCommand::Janitor { port, node_id } => {
@@ -722,60 +501,20 @@ async fn main() -> Result<()> {
             info!("Starting Kafka consumer node: {}", node_id);
             node_startup::start_kafka_node(config, node_id).await?;
         }
-        NodeCommand::Monolith { grpc_addr: _, control_addr: _ } => {
-            info!("Starting OpenWit in intelligent monolith mode...");
-            
-            // Create auto-configuration
-            let mut auto_config = AutoConfig::new();
-            
-            // Auto-detect and allocate ports
-            let _ports = auto_config.configure_ports()?;
-            
-            // Apply auto-configuration to the config
-            auto_config.apply_to_config(&mut config);
-            
-            // Create service discovery registry
-            let registry = auto_config.create_service_registry();
-            let service_discovery = ServiceDiscovery::new(registry);
-            
-            // Set environment variables for service discovery
-            service_discovery.set_env_vars();
-            
-            // Print configuration summary
-            println!("{}", auto_config.get_summary());
-            
-            // Start the monolith server with auto-configured settings
-            if let Err(e) = openwit_server::run_server(config).await {
-                error!("Monolith server failed: {:?}", e);
-                return Err(anyhow::anyhow!("Monolith server failed: {:?}", e));
-            }
-        }
         NodeCommand::Http { bind: _, node_id, max_concurrent_requests, request_timeout_ms, max_payload_size_mb } => {
             let node_id = node_id.unwrap_or_else(|| generate_node_id("http"));
-            
-            // Use distributed auto-configuration with actual config
-            let auto_config = DistributedAutoConfig::with_config("http", node_id.clone(), &config);
-            let service_info = auto_config.configure_and_register(&mut config).await?;
-            auto_config.discover_services(&mut config).await?;
-            
+
             info!("Starting OpenWit HTTP ingestion server");
-            info!("  Auto-selected port: {}", service_info.service_port);
+            info!("  Port: {}", config.ingestion.http.port);
             info!("  Max concurrent requests: {}", max_concurrent_requests);
             info!("  Request timeout: {}ms", request_timeout_ms);
             info!("  Max payload size: {}MB", max_payload_size_mb);
-            
+
             // Apply HTTP-specific config
             config.ingestion.sources.http.enabled = true;
             config.ingestion.http.max_concurrent_requests = max_concurrent_requests;
             config.ingestion.http.request_timeout_ms = request_timeout_ms;
             config.ingestion.http.max_payload_size_mb = max_payload_size_mb;
-            
-            // Register cleanup on shutdown
-            let cleanup_node_id = node_id.clone();
-            tokio::spawn(async move {
-                tokio::signal::ctrl_c().await.ok();
-                cleanup_service_on_shutdown(&cleanup_node_id).await.ok();
-            });
             
             // Start HTTP server with control plane integration
             match openwit_http::HttpServer::new(config.clone(), None) {

@@ -163,11 +163,11 @@ impl ClusterRuntime {
         // Use the node name directly without role suffix
         let node_id_str = self_node_name.to_string();
         let node_id = ChitchatId::new(node_id_str.clone(), 0, listen_addr);
-        
-        info!("🚀 Starting Chitchat cluster node: {}", node_id_str);
-        info!("   Role: {}", role);
-        info!("   Listen address: {}", listen_addr);
-        info!("   Initial seeds: {:?}", seeds);
+
+        debug!("Starting cluster node: {}", node_id_str);
+        debug!("   Role: {}", role);
+        debug!("   Listen address: {}", listen_addr);
+        debug!("   Initial seeds: {:?}", seeds);
         
         // Setup service discovery
         // Check deployment mode from config or environment
@@ -176,25 +176,17 @@ impl ClusterRuntime {
         
         // Force local mode if explicitly set
         let is_k8s = if deployment_mode == "local" {
-            info!("🏠 Using local deployment mode (Kubernetes discovery disabled)");
+            debug!("Using local deployment mode (Kubernetes discovery disabled)");
             false
         } else if deployment_mode == "kubernetes" {
-            info!("☸️  Using Kubernetes deployment mode");
+            debug!("Using Kubernetes deployment mode");
             true
         } else {
             // Auto-detect based on environment
             let detected = is_kubernetes_environment();
-            if detected {
-                info!("☸️  Kubernetes environment detected");
-            } else {
-                info!("🏠 Local environment detected");
-            }
+            debug!("Environment detected: {}", if detected { "Kubernetes" } else { "Local" });
             detected
         };
-        
-        if is_k8s && deployment_mode != "kubernetes" {
-            info!("💡 Tip: Set OPENWIT_DEPLOYMENT_MODE=local to disable Kubernetes DNS lookups");
-        }
         
         // Use config-based discovery if available
         let discovery = if let Some(cfg) = config {
@@ -210,19 +202,16 @@ impl ClusterRuntime {
         // Get initial peers
         let mut all_seeds = seeds;
         if let Ok(discovered) = discovery.discover_peers().await {
-            info!("🔍 Discovered {} additional peers via service discovery", discovered.len());
+            debug!("Discovered {} additional peers via service discovery", discovered.len());
             all_seeds.extend(discovered);
         }
-        
+
         // Remove duplicates and self
         all_seeds.sort();
         all_seeds.dedup();
         all_seeds.retain(|addr| addr != &listen_addr);
-        
-        info!("📡 Final seed list ({} peers):", all_seeds.len());
-        for seed in &all_seeds {
-            info!("   - {}", seed);
-        }
+
+        debug!("Final seed list: {} peers", all_seeds.len());
         
         let seed_strings: Vec<String> = all_seeds.iter().map(|s| s.to_string()).collect();
 
@@ -238,9 +227,7 @@ impl ClusterRuntime {
             catchup_callback: None,
         };
 
-        info!("🔧 Chitchat configuration:");
-        info!("   Gossip interval: 500ms");
-        info!("   Cluster ID: openwit-cluster");
+        debug!("Chitchat configuration: gossip_interval=500ms, cluster_id=openwit-cluster");
 
         let _transport = UdpTransport;
         let raw_handle: ChitchatHandle =
@@ -252,7 +239,7 @@ impl ClusterRuntime {
             c.self_node_state().set("role", role);
             c.self_node_state().set("started_at", &chrono::Utc::now().to_rfc3339());
             c.self_node_state().set("version", env!("CARGO_PKG_VERSION"));
-            info!("✅ Initial gossip metadata set");
+            debug!("Initial gossip metadata set");
         }).await;
         
         // Start periodic re-discovery
@@ -290,12 +277,12 @@ impl ClusterRuntime {
                 
                 // Log when cluster membership changes
                 if node_count != last_node_count {
-                    info!("🔄 Cluster membership changed: {} nodes", node_count);
+                    debug!("Cluster membership changed: {} nodes", node_count);
                     for node_state in &snapshot.node_states {
                         let node_id = &node_state.chitchat_id().node_id;
                         let role = node_state.get("role").unwrap_or("unknown");
                         let heartbeat = node_state.get("heartbeat").unwrap_or("none");
-                        info!("   📍 {} (role: {}, last heartbeat: {})", node_id, role, heartbeat);
+                        debug!("   {} (role: {}, last heartbeat: {})", node_id, role, heartbeat);
                     }
                     last_node_count = node_count;
                 }

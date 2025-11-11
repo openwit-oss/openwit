@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use anyhow::{Context, Result};
 use openwit_config::UnifiedConfig;
-use tracing::{info, debug, warn};
+use tracing::{info, debug};
 
 /// Configuration loader for OpenWit CLI
 /// Handles loading unified configuration from default or custom locations
@@ -17,61 +17,6 @@ impl ConfigLoader {
             // Default path to the unified control config
             default_config_path: PathBuf::from("config/openwit-unified-control.yaml"),
         }
-    }
-
-    /// Load configuration from either the specified path or the default location
-    /// 
-    /// # Arguments
-    /// * `custom_path` - Optional custom path to the configuration file
-    /// 
-    /// # Returns
-    /// * `Result<UnifiedConfig>` - The loaded configuration or an error
-    pub async fn load(&self, custom_path: Option<&str>) -> Result<UnifiedConfig> {
-        let config_path = self.resolve_config_path(custom_path)?;
-        
-        info!("Loading configuration from: {}", config_path.display());
-        
-        // Load the configuration using UnifiedConfig's from_file method
-        let config = UnifiedConfig::from_file(&config_path)
-            .context("Failed to load unified configuration")?;
-        
-        // Validate the configuration
-        self.validate_config(&config)?;
-        
-        info!("Congratulations! Configuration found and loaded successfully");
-        debug!("Environment: {}", config.environment);
-        debug!("Deployment mode: {:?}", config.deployment.mode);
-        
-        Ok(config)
-    }
-    
-    /// Load configuration without validation - useful when CLI overrides will be applied
-    /// 
-    /// # Arguments
-    /// * `custom_path` - Optional custom path to the configuration file
-    /// 
-    /// # Returns
-    /// * `Result<UnifiedConfig>` - The loaded configuration or an error
-    pub async fn load_without_validation(&self, custom_path: Option<&str>) -> Result<UnifiedConfig> {
-        let config_path = self.resolve_config_path(custom_path)?;
-        
-        info!("Loading configuration from: {}", config_path.display());
-        
-        // Load the configuration using UnifiedConfig's from_yaml method
-        // which handles parsing but we'll skip validation
-        let content = std::fs::read_to_string(&config_path)
-            .context("Failed to read configuration file")?;
-        
-        // Use the from_yaml_no_validation method to skip validation
-        // since CLI will apply overrides and then validate
-        let config = UnifiedConfig::from_yaml_no_validation(&content)
-            .context("Failed to parse YAML configuration")?;
-        
-        info!("Configuration loaded successfully (validation deferred)");
-        debug!("Environment: {}", config.environment);
-        debug!("Deployment mode: {:?}", config.deployment.mode);
-        
-        Ok(config)
     }
 
     /// Resolve the configuration path
@@ -126,82 +71,24 @@ impl ConfigLoader {
         ))
     }
 
-    /// Validate the loaded configuration
-    fn validate_config(&self, config: &UnifiedConfig) -> Result<()> {
-        // Basic validation
-        if config.environment.is_empty() {
-            return Err(anyhow::anyhow!("Environment must be specified"));
-        }
-
-        // Validate deployment mode specific requirements
-        match config.deployment.mode.as_str() {
-            "monolith" => {
-                debug!("Validating monolith configuration");
-                // Monolith mode validation
-            }
-            "distributed" => {
-                debug!("Validating distributed configuration");
-                // Distributed mode requires networking configuration
-                // Gossip functionality deprecated - distributed mode now uses simplified networking
-                warn!("Distributed mode running with simplified networking (gossip deprecated)");
-            }
-            mode => {
-                return Err(anyhow::anyhow!("Unknown deployment mode: {}", mode));
-            }
-        }
-
-        // Validate ingestion configuration
-        if config.ingestion.sources.grpc.enabled || config.ingestion.sources.kafka.enabled || config.ingestion.sources.http.enabled {
-            debug!("At least one ingestion source is enabled");
-        } else {
-            warn!("No ingestion sources are enabled");
-        }
-
-        Ok(())
-    }
-
     /// Get configuration with environment variable overrides without validation
     /// Allows overriding specific configuration values via environment variables
     pub async fn load_with_env_overrides_no_validation(&self, custom_path: Option<&str>) -> Result<UnifiedConfig> {
-        let mut config = self.load_without_validation(custom_path).await?;
-        
-        // Apply environment variable overrides
-        // Format: OPENWIT_<SECTION>_<KEY>=value
-        
-        // Example: OPENWIT_ENVIRONMENT=production
-        if let Ok(env) = std::env::var("OPENWIT_ENVIRONMENT") {
-            info!("Overriding environment from env var: {}", env);
-            config.environment = env;
-        }
+        let config_path = self.resolve_config_path(custom_path)?;
 
-        // Example: OPENWIT_DEPLOYMENT_MODE=distributed
-        if let Ok(mode) = std::env::var("OPENWIT_DEPLOYMENT_MODE") {
-            info!("Overriding deployment mode from env var: {}", mode);
-            config.deployment.mode = mode;
-        }
+        info!("Loading configuration from: {}", config_path.display());
 
-        // Example: OPENWIT_INGESTION_GRPC_ENABLED=true
-        if let Ok(enabled) = std::env::var("OPENWIT_INGESTION_GRPC_ENABLED") {
-            if let Ok(val) = enabled.parse::<bool>() {
-                info!("Overriding gRPC ingestion enabled from env var: {}", val);
-                config.ingestion.sources.grpc.enabled = val;
-            }
-        }
+        // Load the configuration without validation
+        let content = std::fs::read_to_string(&config_path)
+            .context("Failed to read configuration file")?;
 
-        // Example: OPENWIT_STORAGE_BACKEND=s3
-        if let Ok(backend) = std::env::var("OPENWIT_STORAGE_BACKEND") {
-            info!("Overriding storage backend from env var: {}", backend);
-            config.storage.backend = backend;
-        }
+        let mut config = UnifiedConfig::from_yaml_no_validation(&content)
+            .context("Failed to parse YAML configuration")?;
 
-        Ok(config)
-    }
-    
-    /// Get configuration with environment variable overrides
-    /// Allows overriding specific configuration values via environment variables
-    pub async fn load_with_env_overrides(&self, custom_path: Option<&str>) -> Result<UnifiedConfig> {
-        let mut config = self.load(custom_path).await?;
-        
+        info!("Configuration loaded successfully (validation deferred)");
+        debug!("Environment: {}", config.environment);
+        debug!("Deployment mode: {:?}", config.deployment.mode);
+
         // Apply environment variable overrides
         // Format: OPENWIT_<SECTION>_<KEY>=value
         

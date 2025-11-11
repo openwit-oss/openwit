@@ -138,9 +138,9 @@ impl ServiceDiscovery {
                     }
                 })
                 .collect();
-            
-            info!("📍 Static discovery mode enabled with {} seeds", seeds.len());
-            
+
+            debug!("Static discovery mode enabled with {} seeds", seeds.len());
+
             DiscoveryMode::Static { seeds }
         };
         
@@ -183,23 +183,23 @@ impl ServiceDiscovery {
         let mut ticker = interval(Duration::from_secs(interval_secs));
         
         tokio::spawn(async move {
-            info!("🔄 Starting periodic peer discovery every {}s", interval_secs);
-            
+            debug!("Starting periodic peer discovery every {}s", interval_secs);
+
             loop {
                 ticker.tick().await;
-                
+
                 match self.discover_peers().await {
                     Ok(peers) => {
                         let peer_count = peers.len();
                         if peer_count > 0 {
-                            info!("🔄 Re-discovered {} peers", peer_count);
+                            debug!("Re-discovered {} peers", peer_count);
                             for peer in &peers {
                                 debug!("   - {}", peer);
                             }
                         }
                     }
                     Err(e) => {
-                        error!("❌ Periodic discovery failed: {}", e);
+                        debug!("Periodic discovery failed: {}", e);
                     }
                 }
             }

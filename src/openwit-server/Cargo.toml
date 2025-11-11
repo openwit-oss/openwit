@@ -26,7 +26,6 @@ openwit-proto = { workspace = true }
 openwit-common = { workspace = true }
 openwit-metrics = { workspace = true }
 openwit-config = { workspace = true }
-openwit-actors = { workspace = true }
 openwit-network = { workspace = true }
 openwit-storage = { workspace = true }
 openwit-transformations = { workspace = true }

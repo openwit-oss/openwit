@@ -16,18 +16,6 @@ use opendal::Operator;
 
 use openwit_config::UnifiedConfig;
 use openwit_common;
-use openwit_actors::{
-    // spawn_monitors,
-    // spawn_decision_actor,
-    // spawn_scale_actor,
-    // spawn_ingestion_pipeline,
-    // spawn_indexer_components,
-    // spawn_storage_components,
-    spawn_query_server,
-    // StorageMessage,
-    // IndexerMessage,
-    // scale::ScaleActor,
-};
 
 use openwit_network::ClusterRuntime;
 
@@ -259,48 +247,32 @@ pub async fn run_server(config: UnifiedConfig) -> Result<(), Box<dyn std::error:
                 None
             };
             
-            // Spawn storage actor
-            let storage_tx = openwit_actors::spawn_storage_components(
-                storage_config_for_actor,
-                storage_metastore.clone(),
-                segment_tx,
-                cloud_operator,
-            );
-            
-            // Forward messages from ingestion to storage actor
+            // Storage actor removed - using direct storage nodes instead
+            // Storage functionality now handled by openwit-storage-node service
+            info!("💾 Storage will be handled by storage nodes via gRPC");
+
+            // Forward messages from ingestion to storage (direct, without actor)
             tokio::spawn(async move {
                 while let Some(messages) = storage_rx.recv().await {
-                    if let Err(e) = storage_tx.send(openwit_actors::StorageMessage::StoreBatch(messages)).await {
-                        error!("Failed to send messages to storage actor: {:?}", e);
-                        break;
-                    }
+                    // TODO: Send to storage node via gRPC instead of actor
+                    info!("Received {} messages for storage (actor system removed)", messages.len());
                 }
-                
+
                 info!("Storage handler stopped");
             });
     }
 
-    // Spawn indexing service if enabled
+    // Indexing service - actor removed, using indexer nodes instead
     if (roles.contains(&"index".to_string()) || false) && segment_rx_holder.is_some() {
         let mut segment_rx = segment_rx_holder.unwrap();
-        
-        // Use shared metastore instance
-        let metastore = shared_metastore.clone();
-        
-        // Start indexing actor
-        let index_path = "./data/index".to_string();
-        let indexer_tx = openwit_actors::spawn_indexer_components(
-            metastore,
-            index_path,
-        );
-        
-        // Forward segment IDs from storage to indexer
+
+        info!("🔍 Indexer actor removed - using indexer nodes instead");
+
+        // Forward segment IDs from storage to indexer node (via gRPC)
         tokio::spawn(async move {
             while let Some(segment_id) = segment_rx.recv().await {
-                if let Err(e) = indexer_tx.send(openwit_actors::IndexerMessage::IndexSegment(segment_id)).await {
-                    error!("Failed to send segment to indexer: {:?}", e);
-                    break;
-                }
+                // TODO: Send to indexer node via gRPC instead of actor
+                info!("Segment ready for indexing: {} (indexer actor removed)", segment_id);
             }
         });
     }
@@ -337,10 +309,11 @@ pub async fn run_server(config: UnifiedConfig) -> Result<(), Box<dyn std::error:
         } else {
             info!("✅ Integrated search service initialized");
         }
-        
-        spawn_query_server(); // stub for now
+
+        // Query engine starting (placeholder for SQL endpoint)
+        tracing::info!("Query engine starting...");
     }
-    // Storage functionality is now handled by the storage actor spawned above
+    // Storage functionality is now handled by storage nodes
     // Metrics/Prometheus monitoring removed
     let metrics_handle: Option<tokio::task::JoinHandle<()>> = None;
     

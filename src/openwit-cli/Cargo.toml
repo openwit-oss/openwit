@@ -23,7 +23,6 @@ opentelemetry-proto = { workspace = true }
 chrono = { workspace = true }
 
 openwit-proto = { workspace = true }
-openwit-server = { workspace = true }
 openwit-common = { workspace = true }
 openwit-config = { workspace = true }
 openwit-proxy = { workspace = true }

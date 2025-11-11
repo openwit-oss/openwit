@@ -10,16 +10,12 @@ use parquet::arrow::ArrowWriter;
 use parquet::file::properties::WriterProperties;
 use std::collections::HashMap;
 use chrono::Datelike;
-use crate::control_plane_discovery::{register_control_plane, get_control_plane_seed, cleanup_control_plane_file};
 
-/// Start the proxy node with unified config
 pub async fn start_proxy_node(config: UnifiedConfig, node_id: String, port: u16) -> Result<()> {
     info!("Starting Proxy Node: {}", node_id);
     info!("════════════════════════════════════════");
     info!("Service port: {}", port);
-    
-    // Proxy node uses the port for HTTP ingestion
-    // Update config to use the specified port
+
     let mut proxy_config = config;
     proxy_config.ingestion.http.port = port;
     proxy_config.ingestion.http.bind = format!("0.0.0.0:{}", port);
@@ -45,22 +41,10 @@ pub async fn start_control_node(config: UnifiedConfig, node_id: String, port: u1
     
     info!("Node ID: {}", node_id);
     info!("Binding to: {}", addr);
-    
-    // Gossip functionality deprecated
-    let mut control_config = config;
-    
+
     // Initialize cluster networking
-    let cluster_handle = init_cluster_networking(&control_config).await?;
-    
-    // Register control plane for discovery (gossip deprecated)
-    register_control_plane(0, port)?;
-    
-    // Setup cleanup on shutdown
-    tokio::spawn(async move {
-        tokio::signal::ctrl_c().await.ok();
-        cleanup_control_plane_file().ok();
-    });
-    
+    let cluster_handle = init_cluster_networking(&config).await?;
+
     // Start control plane with optional config path
     openwit_control_plane::start_control_plane(
         node_id,
@@ -799,9 +783,9 @@ async fn init_cluster_networking(_config: &UnifiedConfig) -> Result<openwit_netw
 
 /// Initialize cluster networking from config with specific role (gossip deprecated)
 async fn init_cluster_networking_with_role(_config: &UnifiedConfig, role: &str) -> Result<openwit_network::ClusterHandle> {
-    // Gossip functionality deprecated - return a dummy handle
-    info!("Cluster networking disabled (gossip deprecated) for role: {}", role);
-    
+    // Create a minimal cluster runtime for heartbeats only
+    debug!("Initializing cluster networking for role: {}", role);
+
     // Create a minimal cluster runtime without gossip
     let node_name = format!("{}-{}", role, uuid::Uuid::new_v4().to_string().split('-').next().unwrap());
     let gossip_addr: SocketAddr = "127.0.0.1:7946".parse()?;

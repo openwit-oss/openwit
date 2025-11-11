@@ -16,7 +16,6 @@ members = [
     "src/openwit-server",
     "src/openwit-janitor",
     "src/openwit-proto",
-    "src/openwit-actors",
     "src/openwit-common",
     "src/openwit-config",
     "src/openwit-indexer",

@@ -50,7 +50,6 @@ openwit-config = { workspace = true }
 openwit-control-plane = { workspace = true }
 openwit-inter-node = { workspace = true }
 openwit-metrics = { workspace = true }
-openwit-actors = { workspace = true }
 openwit_ingestion = { workspace = true }
 
 [build-dependencies]

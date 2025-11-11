@@ -24,31 +24,36 @@ impl NodeManager {
     pub async fn register_node(&self, node: NodeMetadata) -> Result<()> {
         let node_id = node.id.clone();
         let service_type = node.metadata.get("service_type").cloned().unwrap_or_else(|| "unknown".to_string());
-        info!("Registering node: {} with role: {:?}, service_type: {}", node_id.0, node.role, service_type);
-        
-        // Check if node already exists
-        if let Some(_existing) = self.nodes.get(&node_id) {
-            info!("Node {} already exists, updating registration", node_id.0);
+
+        // Check if node already exists (heartbeat update, not new registration)
+        let is_new = !self.nodes.contains_key(&node_id);
+
+        if is_new {
+            // Only log for NEW nodes
+            info!("Registering node: {} with role: {:?}, service_type: {}", node_id.0, node.role, service_type);
+
+            self.nodes.insert(node_id.clone(), node);
+
+            // Log current node count by service type
+            let http_count = self.nodes.iter()
+                .filter(|entry| entry.value().metadata.get("service_type").map(|st| st == "http").unwrap_or(false))
+                .count();
+            let grpc_count = self.nodes.iter()
+                .filter(|entry| entry.value().metadata.get("service_type").map(|st| st == "grpc").unwrap_or(false))
+                .count();
+            let kafka_count = self.nodes.iter()
+                .filter(|entry| entry.value().metadata.get("service_type").map(|st| st == "kafka").unwrap_or(false))
+                .count();
+
+            info!("Current node counts - HTTP: {}, gRPC: {}, Kafka: {}", http_count, grpc_count, kafka_count);
+
+            // Notify other components about new node
+            self.broadcast_node_change(&node_id, "registered").await;
+        } else {
+            // Silently update existing node (heartbeat refresh)
+            self.nodes.insert(node_id.clone(), node);
         }
-        
-        self.nodes.insert(node_id.clone(), node);
-        
-        // Log current node count by service type
-        let http_count = self.nodes.iter()
-            .filter(|entry| entry.value().metadata.get("service_type").map(|st| st == "http").unwrap_or(false))
-            .count();
-        let grpc_count = self.nodes.iter()
-            .filter(|entry| entry.value().metadata.get("service_type").map(|st| st == "grpc").unwrap_or(false))
-            .count();
-        let kafka_count = self.nodes.iter()
-            .filter(|entry| entry.value().metadata.get("service_type").map(|st| st == "kafka").unwrap_or(false))
-            .count();
-        
-        info!("Current node counts - HTTP: {}, gRPC: {}, Kafka: {}", http_count, grpc_count, kafka_count);
-        
-        // Notify other components about new node
-        self.broadcast_node_change(&node_id, "registered").await;
-        
+
         Ok(())
     }
     

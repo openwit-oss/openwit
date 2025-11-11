@@ -4,8 +4,8 @@ use openwit_config::UnifiedConfig;
 use tracing::{info, debug};
 
 /// Default ports for ingestion services
-pub const DEFAULT_GRPC_PORT: u16 = 4321;  // OpenWit gRPC ingestion port
-pub const DEFAULT_HTTP_PORT: u16 = 8801;  // OpenWit HTTP ingestion port
+pub const DEFAULT_GRPC_PORT: u16 = 4321;
+pub const DEFAULT_HTTP_PORT: u16 = 8801;
 pub const DEFAULT_GRPC_BIND: &str = "0.0.0.0";
 pub const DEFAULT_HTTP_BIND: &str = "0.0.0.0";
 

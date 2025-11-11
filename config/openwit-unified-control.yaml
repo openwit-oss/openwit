@@ -55,18 +55,17 @@ ingestion:
       max_poll_interval_ms: 900000
       max_poll_records: 50000
 
-    # SAFE COMMIT CONFIGURATION
     commit_strategy:
-      mode: "after_wal"                # Options: immediate (risky), after_wal (safe), after_storage (safest)
-      enable_auto_commit: false        # Never auto-commit for safety
-      wait_for_wal: true               # Wait for WAL write confirmation
-      wal_timeout_ms: 10000            # Max 10s to wait for WAL
-      retry_on_failure: true           # Retry if WAL write fails
-      max_retries: 3                   # Max retries before giving up
+      mode: "after_wal"
+      enable_auto_commit: false
+      wait_for_wal: true
+      wal_timeout_ms: 10000
+      retry_on_failure: true
+      max_retries: 3
 
     batching:
-      batch_size: 100                 # Reduced for lower latency
-      batch_timeout_ms: 100            # 100ms max wait for <1s latency
+      batch_size: 100
+      batch_timeout_ms: 100
 
   batch_tracker:
     enabled: true
@@ -80,21 +79,19 @@ ingestion:
 
   telemetry_type: "traces"
 
-  # Performance settings for <1s latency
   performance:
-    use_direct_conversion: true       # Use the optimized path
-    preallocate_capacity: 1000        # Pre-allocate Arrow builders
-    zero_copy: true                   # Enable zero-copy operations
-    parallel_processing: true         # Process in parallel
-    workers: 8                        # Number of parallel workers
+    use_direct_conversion: true
+    preallocate_capacity: 1000
+    zero_copy: true
+    parallel_processing: true
+    workers: 8
 
-  # Batch tracking configuration
   batch_processing:
-    maintain_kafka_batch_id: true     # Keep original Kafka batch IDs
-    process_as_batch: true            # Process entire batch together
-    batch_size: 100                   # Reduced from 1000 for lower latency
-    batch_timeout_ms: 100             # 100ms max wait (was 5000ms)
-    track_per_batch_metrics: true     # Track metrics per batch
+    maintain_kafka_batch_id: true
+    process_as_batch: true
+    batch_size: 100
+    batch_timeout_ms: 100
+    track_per_batch_metrics: true
 
   grpc:
     bind: "0.0.0.0"
@@ -103,7 +100,7 @@ ingestion:
 
     runtime_size: 8
     max_concurrent_requests: 10000
-    request_timeout_ms: 2000          # Reduced from 30000ms for faster response
+    request_timeout_ms: 2000
     connection_pool_size: 100
 
     max_message_size: 208715200
@@ -130,8 +127,8 @@ ingestion:
 
     tls:
       enabled: false
-      cert_path: "${TLS_CERT_PATH}"
-      key_path: "${TLS_KEY_PATH}"
+      cert_path: "${TLS_CERT_PATH:-}"
+      key_path: "${TLS_KEY_PATH:-}"
 
   http:
     port: 4318
@@ -159,24 +156,24 @@ storage:
 
   azure:
     enabled: false
-    account_name: "${AZURE_STORAGE_ACCOUNT}"
-    container_name: "${AZURE_STORAGE_CONTAINER}"
-    access_key: "${AZURE_STORAGE_ACCESS_KEY}"
+    account_name: "${AZURE_STORAGE_ACCOUNT:-}"
+    container_name: "${AZURE_STORAGE_CONTAINER:-}"
+    access_key: "${AZURE_STORAGE_ACCESS_KEY:-}"
     prefix: "openwit/storage"
-    endpoint: "${AZURE_STORAGE_ENDPOINT}"
+    endpoint: "${AZURE_STORAGE_ENDPOINT:-}"
 
   s3:
     enabled: false
-    bucket: "${S3_BUCKET_NAME}"
-    region: "${S3_REGION}"
-    access_key_id: "${AWS_ACCESS_KEY_ID}"
-    secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+    bucket: "${S3_BUCKET_NAME:-}"
+    region: "${S3_REGION:-}"
+    access_key_id: "${AWS_ACCESS_KEY_ID:-}"
+    secret_access_key: "${AWS_SECRET_ACCESS_KEY:-}"
     prefix: "openwit/storage"
 
   gcs:
     enabled: false
-    bucket: "${GCS_BUCKET_NAME}"
-    service_account_key: "${GCS_SERVICE_ACCOUNT_KEY}"
+    bucket: "${GCS_BUCKET_NAME:-}"
+    service_account_key: "${GCS_SERVICE_ACCOUNT_KEY:-}"
 
   parquet:
     row_group_size: 1000000
@@ -239,47 +236,36 @@ networking:
 memory:
   max_memory_gb: 32
 
-
 metastore:
-  backend: "sled"  # Options: sled, postgres
+  backend: "sled"
 
   sled:
     path: "./data/metastore"
     cache_size_mb: 512
 
-  # PostgreSQL
   postgres:
-    connection_string: "${DATABASE_URL}"
+    connection_string: "${DATABASE_URL:-}"
     max_connections: 20
 
-
-# INDEXING CONFIGURATION
 indexing:
   enabled: true
   batch_size: 1000
   worker_threads: 4
 
-
-# SEARCH CONFIGURATION
 search:
   enabled: true
   max_results: 1000
 
-
-# JANITOR CONFIGURATION
 janitor:
   cleanup_interval_seconds: 3600
   retention_days: 30
 
-# DEVELOPMENT CONFIGURATION
 development:
   skip_health_checks: false
 
-# PERFORMANCE TESTING CONFIGURATION
 performance_testing:
   enabled: false
 
-# SERVICE PORTS CONFIGURATION
 service_ports:
   control_plane:
     service: 7019

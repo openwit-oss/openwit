@@ -10,7 +10,6 @@ use openwit_inter_node::TransferManager;
 use openwit_config::UnifiedConfig;
 use crate::proxy_buffer::ProxyMessage;
 
-// use openwit_actors::{IngestionActorMessage}; // Removed: ingestion actor removed
 use openwit_ingestion::types::{IngestedMessage, MessageSource, MessagePayload};
 
 /// Round-robin router for distributing traffic to ingestor nodes

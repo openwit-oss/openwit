@@ -25,23 +25,6 @@ pub struct ProxyControlPlaneClient {
     last_connection: Arc<RwLock<Option<std::time::Instant>>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct ServiceRegistryInfo {
-    node_id: String,
-    node_type: String,
-    service_port: u16,
-    gossip_port: Option<u16>,
-    endpoint: String,
-    started_at: chrono::DateTime<chrono::Utc>,
-    #[serde(default)]
-    arrow_flight_port: u16,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-struct DistributedServiceRegistry {
-    services: HashMap<String, Vec<ServiceRegistryInfo>>,
-}
-
 #[derive(Debug, Clone, Default)]
 struct HealthyServicesCache {
     /// HTTP service endpoints
@@ -264,14 +247,8 @@ impl ProxyControlPlaneClient {
     
     /// Refresh all service types from control plane
     async fn refresh_all_services(&self) -> Result<()> {
-        // Try control plane first, fall back to service registry if needed
-        match self.refresh_from_control_plane().await {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                warn!("Failed to refresh from control plane: {}, trying service registry", e);
-                self.refresh_from_service_registry().await
-            }
-        }
+        // Use control plane only - file-based registry removed
+        self.refresh_from_control_plane().await
     }
     
     /// Refresh services from control plane
@@ -293,59 +270,6 @@ impl ProxyControlPlaneClient {
         cache.last_update = Some(std::time::Instant::now());
         
         info!("Refreshed healthy services cache from control plane: {} HTTP, {} gRPC, {} Kafka",
-            cache.http_services.len(),
-            cache.grpc_services.len(),
-            cache.kafka_brokers.len()
-        );
-        
-        Ok(())
-    }
-    
-    /// Refresh services from distributed service registry file
-    async fn refresh_from_service_registry(&self) -> Result<()> {
-        let registry_path = PathBuf::from("./data/.openwit_services.json");
-        
-        if !registry_path.exists() {
-            return Err(anyhow::anyhow!("Service registry file not found"));
-        }
-        
-        let content = tokio::fs::read_to_string(&registry_path).await?;
-        let registry: DistributedServiceRegistry = serde_json::from_str(&content)?;
-        
-        let mut http_services = Vec::new();
-        let mut grpc_services = Vec::new();
-        
-        // Convert registry entries to ServiceEndpoint format
-        for (service_type, services) in &registry.services {
-            for service in services {
-                let endpoint = ServiceEndpoint {
-                    node_id: service.node_id.clone(),
-                    endpoint: service.endpoint.clone(),
-                    health_score: 1.0, // Assume healthy if in registry
-                    cpu_percent: 0.0,  // Unknown from registry
-                    memory_percent: 0.0, // Unknown from registry
-                    active_connections: 0, // Unknown from registry
-                };
-                
-                match service_type.as_str() {
-                    "http" => http_services.push(endpoint),
-                    "grpc" | "ingest" => grpc_services.push(endpoint),
-                    _ => {}
-                }
-            }
-        }
-        
-        // Also try to get Kafka brokers from config as fallback
-        let kafka_brokers = self.fetch_kafka_brokers().await.unwrap_or_default();
-        
-        // Update cache
-        let mut cache = self.healthy_services.write().await;
-        cache.http_services = http_services;
-        cache.grpc_services = grpc_services;
-        cache.kafka_brokers = kafka_brokers;
-        cache.last_update = Some(std::time::Instant::now());
-        
-        info!("Refreshed healthy services cache from service registry: {} HTTP, {} gRPC, {} Kafka",
             cache.http_services.len(),
             cache.grpc_services.len(),
             cache.kafka_brokers.len()
@@ -411,12 +335,7 @@ impl ProxyControlPlaneClient {
             }
             Err(e) => {
                 error!("Failed to get healthy {} services from control plane: {}", service_type, e);
-                
-                // Try to refresh from service registry as fallback
-                if let Err(registry_err) = self.refresh_from_service_registry().await {
-                    warn!("Failed to refresh from service registry: {}", registry_err);
-                }
-                
+
                 // Return cached data if available
                 let cache = self.healthy_services.read().await;
                 match service_type {
