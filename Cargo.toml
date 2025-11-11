@@ -16,7 +16,6 @@ members = [
     "src/openwit-server",
     "src/openwit-janitor",
     "src/openwit-proto",
-    "src/openwit-common",
     "src/openwit-config",
     "src/openwit-indexer",
     "src/openwit-http",
@@ -226,7 +225,6 @@ openwit-server = { path = "src/openwit-server" }
 openwit-janitor = { path = "src/openwit-janitor" }
 openwit-proto = { path = "src/openwit-proto" }
 openwit-actors = { path = "src/openwit-actors" }
-openwit-common = { path = "src/openwit-common" }
 openwit-config = { path = "src/openwit-config" }
 openwit-indexer = { path = "src/openwit-indexer" }
 openwit-http = { path = "src/openwit-http" }

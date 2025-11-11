@@ -29,7 +29,6 @@ sqlx = { workspace = true }
 # Internal dependencies
 openwit-config = { workspace = true }
 openwit-network = { workspace = true }
-openwit-common = { workspace = true }
 openwit-metrics = { workspace = true }
 openwit-metastore = { workspace = true }
 openwit-proto = { workspace = true }

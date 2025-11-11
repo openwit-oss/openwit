@@ -43,7 +43,6 @@ reqwest = { workspace = true }
 regex = { workspace = true }
 
 # Internal dependencies
-openwit-common = { workspace = true }
 openwit-proto = { workspace = true }
 openwit-network = { workspace = true }
 openwit-config = { workspace = true }

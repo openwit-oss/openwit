@@ -15,7 +15,6 @@ use anyhow::{ Result };
 use opendal::Operator;
 
 use openwit_config::UnifiedConfig;
-use openwit_common;
 
 use openwit_network::ClusterRuntime;
 
@@ -28,7 +27,8 @@ pub async fn run_server(config: UnifiedConfig) -> Result<(), Box<dyn std::error:
 
     // --- 1. Prometheus/Metrics Server (conditional) ---
 
-    tokio::spawn(openwit_common::system_metrics::start_system_metrics_collector());
+    // TODO: System metrics collection to be implemented in phase 2
+    // tokio::spawn(openwit_common::system_metrics::start_system_metrics_collector());
 
     let pod_role = if !config.deployment.kubernetes.pod_role.is_empty() {
         config.deployment.kubernetes.pod_role.clone()

@@ -1,84 +1,67 @@
-FROM rust:bookworm AS bin-builder
+FROM rust:1.83-bookworm AS builder
 
 ARG CARGO_PROFILE=release
-ARG CARGO_LOG=plain
-ARG GH_PAT
+ARG RUSTFLAGS="--cfg tokio_unstable"
 
-# Set environment variables
-ENV GH_PAT=$GH_PAT
-
-# Install all dependencies including those needed for rdkafka and aws-lc
-RUN apt-get -y update \
-    && apt-get -y install -y \
-        ca-certificates \
-        clang \
-        cmake \
-        libssl-dev \
-        llvm \
-        python3.11 \
-        python3-pip \
-        pkg-config \
-        libprotobuf-dev \
-        protobuf-compiler \
-        libsasl2-dev \
-        libzstd-dev \
-        liblz4-dev \
-        libclang-dev \
-        build-essential \
-        libc6-dev \
-        nasm \
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    clang \
+    cmake \
+    libssl-dev \
+    llvm \
+    pkg-config \
+    libprotobuf-dev \
+    protobuf-compiler \
+    libsasl2-dev \
+    libzstd-dev \
+    liblz4-dev \
+    libclang-dev \
+    build-essential \
+    nasm \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app directory
-WORKDIR /openwit
+WORKDIR /build
 
-# Copy workspace definition first for better caching
-COPY Cargo.toml /openwit/
-COPY src/ /openwit/src/
-COPY config/openwit-unified-control.yaml /openwit/config/default.yaml
+COPY Cargo.toml Cargo.lock* ./
+COPY src/ ./src/
 
-RUN rustup toolchain install
-RUN git config --global url."https://$GH_PAT@github.com/".insteadOf "https://github.com/"
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/build/target \
+    RUSTFLAGS="$RUSTFLAGS" cargo build \
+    -p openwit-cli \
+    --bin openwit-cli \
+    $(test "$CARGO_PROFILE" = "release" && echo "--release") && \
+    cp target/${CARGO_PROFILE}/openwit-cli /openwit-cli
 
-# Build the actual binary - don't specify target, build for native platform
-RUN echo "Building workspace for profile '$CARGO_PROFILE'"
+FROM debian:bookworm-slim
 
-# Build without cross-compilation
-RUN RUSTFLAGS="--cfg tokio_unstable" \
-    cargo build -p openwit-cli --bin openwit-cli \
-    $(test "$CARGO_PROFILE" = "release" && echo "--release") \
-    $(test "$CARGO_LOG" = "verbose" && echo "--verbose")
-
-RUN echo "Copying binaries to /openwit/bin"
-
-# Create binary output directory and move binaries there
-RUN mkdir -p /openwit/bin && find ./target/$CARGO_PROFILE -maxdepth 1 -perm /a+x -type f -exec mv {} /openwit/bin \;
-
-# Final stage
-FROM debian:bookworm-slim AS openwit
-
-RUN apt-get -y update \
-    && apt-get -y install -y \
-        ca-certificates \
-        libssl3 \
-        libsasl2-2 \
-        libzstd1 \
-        liblz4-1 \
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    libsasl2-2 \
+    libzstd1 \
+    liblz4-1 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /openwit
 
-# Expose common ports
-EXPOSE 7280 7460 7470 7480 7490 7500 9090 9401 8081 4317 4318 50051
+COPY --from=builder /openwit-cli /usr/local/bin/openwit
+COPY config/openwit-unified-control.yaml.example /openwit/config/default.yaml
 
-# Set environment variables
-ENV OPENWIT_CONFIG_PATH=/openwit/config/default.yaml
-ENV OPENWIT_DATA_DIR=/openwit/data
-ENV RUST_LOG=info
+RUN mkdir -p /openwit/data /openwit/config && \
+    chmod +x /usr/local/bin/openwit
 
-# Copy binary and default configuration from the builder stage
-COPY --from=bin-builder /openwit/bin/openwit-cli /usr/local/bin/openwit
-COPY --from=bin-builder /openwit/config/default.yaml /openwit/config/default.yaml
+ENV RUST_LOG=info \
+    OPENWIT_CONFIG_PATH=/openwit/config/default.yaml \
+    OPENWIT_DATA_DIR=/openwit/data
 
-# Volume for persistent data
+EXPOSE 7019 8080 8081 8083 4318 50051 9401
+
 VOLUME ["/openwit/data", "/openwit/config"]
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:7019/health || exit 1
+
+ENTRYPOINT ["/usr/local/bin/openwit"]
+CMD ["--help"]

@@ -23,7 +23,6 @@ opentelemetry-proto = { workspace = true }
 chrono = { workspace = true }
 
 openwit-proto = { workspace = true }
-openwit-common = { workspace = true }
 openwit-config = { workspace = true }
 openwit-proxy = { workspace = true }
 openwit_ingestion = { workspace = true }
@@ -32,6 +31,7 @@ openwit-indexer = { workspace = true }
 openwit-search = { workspace = true }
 openwit-control-plane = { workspace = true }
 openwit-http = { workspace = true }
+openwit-grpc = { workspace = true }
 openwit-network = { workspace = true }
 openwit-inter-node = { workspace = true }
 openwit-kafka = { workspace = true }

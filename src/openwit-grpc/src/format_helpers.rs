@@ -4,7 +4,7 @@ use opentelemetry_proto::tonic::{
 };
 use std::time::UNIX_EPOCH;
 
-// Helper to format nanosecond-precision Unix timestamps into human-readable strings
+
 pub fn format_timestamp_ns(ns: u64) -> String {
     if ns == 0 {
         return "0 (timestamp not set or epoch)".to_string();
@@ -24,7 +24,7 @@ pub fn format_timestamp_ns(ns: u64) -> String {
     }
 }
 
-// Helper to format an OTLP AnyValue into a string
+
 pub fn format_any_value(value_option: &Option<AnyValue>) -> String {
     match value_option {
         Some(any_value) => match &any_value.value {
@@ -128,17 +128,4 @@ pub fn format_resource(resource_option: &Option<OtlpResourceProto>, base_indent:
         s.push_str(&format!("{}Resource: (not set)\n", base_indent));
     }
     s
-}
-
-// Simple float precision helper (placeholder for a more robust one if needed)
-// For the `d.to_string()` part in format_any_value, if you want specific float formatting.
-// This is a very basic example. Libraries like `ryu` or `dtoa` are for high-performance.
-// Or just stick with d.to_string() for simplicity.
-mod precision { // "humanities" in Hindi, just a namespace for fun
-    #[allow(dead_code)]
-    pub fn precision(_d: &f64) -> usize {
-        // A more sophisticated version would check the number of decimal places.
-        // For now, let's say 6 for general display.
-        6
-    }
 }

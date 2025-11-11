@@ -77,18 +77,6 @@ enum NodeCommand {
         node_id: Option<String>,
     },
 
-    Ingest {
-        #[arg(long)]
-        port: Option<u16>,
-        #[arg(long)]
-        node_id: Option<String>,
-        #[arg(long)]
-        grpc_bind: Option<String>,
-
-        #[arg(long)]
-        force_grpc: bool,
-    },
-
     Grpc {
         #[arg(long)]
         port: Option<u16>,
@@ -235,25 +223,7 @@ async fn main() -> Result<()> {
     info!("Applying ingestion type: {:?} - {}", effective_ingestion_type, effective_ingestion_type.description());
     effective_ingestion_type.apply_to_config(&mut config)?;
     
-    // For distributed nodes (non-monolith, non-proxy), adjust the ingestion meaning
-    match &node_type {
-        NodeCommand::Control { .. } | NodeCommand::Ingest { .. } | NodeCommand::Grpc { .. } |
-        NodeCommand::Storage { .. } | NodeCommand::Indexer { .. } | 
-        NodeCommand::Search { .. } | NodeCommand::Janitor { .. } => {
-            info!("Note: For {} node, ingestion type defines inter-node communication protocol", 
-                match &node_type {
-                    NodeCommand::Control { .. } => "control",
-                    NodeCommand::Ingest { .. } => "ingest",
-                    NodeCommand::Grpc { .. } => "grpc",
-                    NodeCommand::Storage { .. } => "storage",
-                    NodeCommand::Indexer { .. } => "indexer",
-                    NodeCommand::Search { .. } => "search",
-                    NodeCommand::Janitor { .. } => "janitor",
-                    _ => "unknown",
-                });
-        }
-        _ => {}
-    }
+    // Distributed nodes use dedicated commands (grpc, http, kafka) for clarity
     
     // Override Kafka brokers if provided via command line
     if let Some(brokers) = args.kafka_brokers {
@@ -294,8 +264,8 @@ async fn main() -> Result<()> {
     }
     
     // Validate configuration based on ingestion type, but skip Kafka validation for non-proxy/monolith nodes
-    let skip_kafka_validation = matches!(node_type, 
-        NodeCommand::Control { .. } | NodeCommand::Ingest { .. } | NodeCommand::Grpc { .. } |
+    let skip_kafka_validation = matches!(node_type,
+        NodeCommand::Control { .. } | NodeCommand::Grpc { .. } | NodeCommand::Http { .. } |
         NodeCommand::Storage { .. } | NodeCommand::Indexer { .. } | 
         NodeCommand::Search { .. } | NodeCommand::Janitor { .. }
     );
@@ -344,10 +314,10 @@ async fn main() -> Result<()> {
         }
     }
     
-    // Log key config details
-    if config.ingestion.kafka.brokers.is_some() {
-        info!("Kafka configuration found: {:?} | Topics: {:?}", 
-             config.ingestion.kafka.brokers, 
+    // Log key config details only for relevant nodes
+    if matches!(&node_type, NodeCommand::Kafka { .. }) && config.ingestion.kafka.brokers.is_some() {
+        info!("Kafka configuration: {:?} | Topics: {:?}",
+             config.ingestion.kafka.brokers,
              config.ingestion.kafka.topics);
     }
     if config.storage.azure.enabled {
@@ -378,56 +348,14 @@ async fn main() -> Result<()> {
 
             node_startup::start_proxy_node(config, node_id, proxy_port).await?;
         }
-        NodeCommand::Ingest { port, node_id, grpc_bind, force_grpc } => {
-            let node_id = node_id.unwrap_or_else(|| generate_node_id("ingest"));
-            
-            // Override gRPC configuration if requested
-            if force_grpc {
-                config.ingestion.sources.grpc.enabled = true;
-                info!("Forcing gRPC ingestion mode");
-            }
-            
-            if let Some(ref bind_addr) = grpc_bind {
-                // Parse the bind address to extract host and port
-                if let Some((host, port_str)) = bind_addr.rsplit_once(':') {
-                    if let Ok(grpc_port) = port_str.parse::<u16>() {
-                        config.ingestion.grpc.bind = host.to_string();
-                        config.ingestion.grpc.port = grpc_port;
-                        info!("Overriding gRPC bind: {} port: {}", host, grpc_port);
-                    }
-                } else {
-                    // If no port specified, use default host with existing port
-                    config.ingestion.grpc.bind = bind_addr.clone();
-                    info!("Overriding gRPC bind host: {}", bind_addr);
-                }
-            }
-            
-            // Use the port from command line or config
-            let grpc_port = if let Some(bind_addr) = &grpc_bind {
-                // Extract port from bind address
-                bind_addr
-                    .split(':').last()
-                    .and_then(|p| p.parse::<u16>().ok())
-                    .or(port)
-                    .unwrap_or(config.ingestion.grpc.port)
-            } else {
-                // Use command line port if provided, otherwise use config
-                port.unwrap_or(config.ingestion.grpc.port)
-            };
-
-            info!("Starting Ingestion node: {} with gRPC on port {}", node_id, grpc_port);
-
-            node_startup::start_ingest_node(config, node_id, grpc_port).await?;
-        }
         NodeCommand::Grpc { port, node_id, grpc_bind } => {
             let node_id = node_id.unwrap_or_else(|| generate_node_id("grpc"));
-            
-            // gRPC command always forces gRPC mode
+
+            // Enable gRPC ingestion
             config.ingestion.sources.grpc.enabled = true;
             config.ingestion.sources.kafka.enabled = false;
             config.ingestion.sources.http.enabled = false;
-            info!("gRPC/OTLP ingestion mode enabled");
-            
+
             if let Some(ref bind_addr) = grpc_bind {
                 // Parse the bind address to extract host and port
                 if let Some((host, port_str)) = bind_addr.rsplit_once(':') {
@@ -456,9 +384,9 @@ async fn main() -> Result<()> {
                 port.unwrap_or(config.ingestion.grpc.port)
             };
 
-            info!("Starting gRPC/OTLP node: {} on port {}", node_id, grpc_port);
+            info!("Starting gRPC node: {} on port {}", node_id, grpc_port);
 
-            node_startup::start_ingest_node(config, node_id, grpc_port).await?;
+            node_startup::start_grpc_node(config, node_id, grpc_port).await?;
         }
         NodeCommand::Storage { port: _, node_id } => {
             let node_id = node_id.unwrap_or_else(|| generate_node_id("storage"));

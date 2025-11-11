@@ -46,7 +46,6 @@ opentelemetry-proto = { workspace = true }
 # Internal dependencies
 openwit-proto = { path = "../openwit-proto" }
 openwit-config = { path = "../openwit-config" }
-openwit-common = { path = "../openwit-common" }
 openwit_ingestion = { path = "../openwit_ingestion" }
 
 # Other

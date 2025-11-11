@@ -49,36 +49,36 @@ Every batch is tracked in PostgreSQL with complete pipeline visibility:
 
 ```sql
 CREATE TABLE batch_tracker (
-    batch_id UUID PRIMARY KEY,
-    client_id VARCHAR(255) NOT NULL,
+                              batch_id UUID PRIMARY KEY,
+                              client_id VARCHAR(255) NOT NULL,
 
-    -- Pipeline stage completion flags
-    kafka_pip BOOLEAN DEFAULT false,
-    wal_pip BOOLEAN DEFAULT false,
-    ingestion_pip BOOLEAN DEFAULT false,
-    storage_pip BOOLEAN DEFAULT false,
-    index_pip BOOLEAN DEFAULT false,
-    janitor_pip BOOLEAN DEFAULT false,
+   -- Pipeline stage completion flags
+                              kafka_pip BOOLEAN DEFAULT false,
+                              wal_pip BOOLEAN DEFAULT false,
+                              ingestion_pip BOOLEAN DEFAULT false,
+                              storage_pip BOOLEAN DEFAULT false,
+                              index_pip BOOLEAN DEFAULT false,
+                              janitor_pip BOOLEAN DEFAULT false,
 
-    -- Batch metadata
-    batch_size INTEGER NOT NULL,
-    message_count INTEGER NOT NULL,
-    first_offset BIGINT,
-    last_offset BIGINT,
-    topics TEXT[],
+   -- Batch metadata
+                              batch_size INTEGER NOT NULL,
+                              message_count INTEGER NOT NULL,
+                              first_offset BIGINT,
+                              last_offset BIGINT,
+                              topics TEXT[],
 
-    -- Timing information
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    kafka_completed_at TIMESTAMPTZ,
-    wal_completed_at TIMESTAMPTZ,
-    ingestion_completed_at TIMESTAMPTZ,
-    storage_completed_at TIMESTAMPTZ,
-    index_completed_at TIMESTAMPTZ,
+   -- Timing information
+                              created_at TIMESTAMPTZ DEFAULT NOW(),
+                              kafka_completed_at TIMESTAMPTZ,
+                              wal_completed_at TIMESTAMPTZ,
+                              ingestion_completed_at TIMESTAMPTZ,
+                              storage_completed_at TIMESTAMPTZ,
+                              index_completed_at TIMESTAMPTZ,
 
-    -- Error tracking
-    error_stage VARCHAR(50),
-    error_message TEXT,
-    retry_count INTEGER DEFAULT 0
+   -- Error tracking
+                              error_stage VARCHAR(50),
+                              error_message TEXT,
+                              retry_count INTEGER DEFAULT 0
 )
 ```
 
@@ -95,9 +95,9 @@ CREATE TABLE batch_tracker (
 - **Service Discovery**: gRPC-based node discovery and health tracking
 - **Health Monitoring**: Tracks status of all nodes in the cluster
 - **Batch Monitoring**: Centralized batch status API
-  - `/api/batch-monitor/status` - Global batch statistics
-  - `/api/batch-monitor/batches/{batch_id}` - Individual batch tracking
-  - `/api/batch-monitor/alerts` - Stuck batch alerts
+   - `/api/batch-monitor/status` - Global batch statistics
+   - `/api/batch-monitor/batches/{batch_id}` - Individual batch tracking
+   - `/api/batch-monitor/alerts` - Stuck batch alerts
 - **Node Management**: Registers and manages node lifecycle
 
 ### Ingestion Nodes
@@ -444,130 +444,130 @@ OpenWit uses a unified YAML configuration file:
 ```yaml
 # Deployment mode
 deployment:
-  mode: "standalone"  # or "monolith", "distributed"
+   mode: "standalone"  # or "monolith", "distributed"
 
 # Control plane
 control_plane:
-  grpc_endpoint: "http://localhost:7019"
-  enabled: true
+   grpc_endpoint: "http://localhost:7019"
+   enabled: true
 
 # Ingestion sources
 ingestion:
-  sources:
-    kafka:
+   sources:
+      kafka:
+         enabled: true
+      grpc:
+         enabled: true
+      http:
+         enabled: true
+
+   kafka:
+      brokers: "localhost:9092"
+      topics:
+         - "v6.qtw.traces.*.*"
+
+      # SAFE COMMIT STRATEGY
+      commit_strategy:
+         mode: "after_wal"              # Only commit after WAL write
+         enable_auto_commit: false      # Manual commits for safety
+         wait_for_wal: true
+         wal_timeout_ms: 10000
+         max_retries: 3
+
+      # Batch configuration - tune for your needs
+      batching:
+         batch_size: 100                # Messages per batch (configurable)
+         batch_timeout_ms: 100          # Max wait time (configurable)
+         # For low latency: batch_size: 50-100, batch_timeout_ms: 50-100
+         # For high throughput: batch_size: 1000-5000, batch_timeout_ms: 1000-5000
+
+      # High-performance consumer options
+      high_performance:
+         num_consumers: 2               # Number of consumer threads
+         processing_threads: 4          # Parallel processing threads
+         num_grpc_clients: 2            # gRPC client pool size
+         channel_buffer_size: 10000     # Internal buffer size
+         fetch_min_bytes: 262144        # Min bytes to fetch (256KB)
+         fetch_max_bytes: 8388608       # Max bytes to fetch (8MB)
+         max_partition_fetch_bytes: 2097152  # Max per partition (2MB)
+
+   # Batch tracking configuration
+   batch_tracker:
       enabled: true
-    grpc:
-      enabled: true
-    http:
-      enabled: true
+      postgres_url: "postgresql://postgres:password@localhost/openwit"
+      wal_directory: "./data/wal"
+      batch_config:
+         max_size_bytes: 10485760       # 10MB max (configurable)
+         max_messages: 10000            # Max messages per batch (configurable)
+         max_age_seconds: 30            # Max batch age before force flush
 
-  kafka:
-    brokers: "localhost:9092"
-    topics:
-      - "v6.qtw.traces.*.*"
+   grpc:
+      port: 4317
+      bind: "0.0.0.0"
+      max_message_size: 209715200      # 200MB (configurable)
+      max_concurrent_requests: 10000   # Concurrent request limit
+      request_timeout_ms: 2000         # Request timeout
+      worker_threads: 4                # Processing threads
+      max_concurrent_streams: 1000     # HTTP/2 streams
 
-    # SAFE COMMIT STRATEGY
-    commit_strategy:
-      mode: "after_wal"              # Only commit after WAL write
-      enable_auto_commit: false      # Manual commits for safety
-      wait_for_wal: true
-      wal_timeout_ms: 10000
-      max_retries: 3
+      # Batching for gRPC (optional)
+      batching:
+         enabled: true
+         max_batch_size: 1000           # Requests per batch
+         batch_timeout_ms: 100          # Max wait time
 
-    # Batch configuration - tune for your needs
-    batching:
-      batch_size: 100                # Messages per batch (configurable)
-      batch_timeout_ms: 100          # Max wait time (configurable)
-      # For low latency: batch_size: 50-100, batch_timeout_ms: 50-100
-      # For high throughput: batch_size: 1000-5000, batch_timeout_ms: 1000-5000
+   http:
+      port: 9087
+      bind: "0.0.0.0"
+      max_payload_size_mb: 100         # Max payload (configurable)
+      max_concurrent_requests: 5000    # Concurrent requests
+      request_timeout_ms: 30000        # Request timeout
 
-    # High-performance consumer options
-    high_performance:
-      num_consumers: 2               # Number of consumer threads
-      processing_threads: 4          # Parallel processing threads
-      num_grpc_clients: 2            # gRPC client pool size
-      channel_buffer_size: 10000     # Internal buffer size
-      fetch_min_bytes: 262144        # Min bytes to fetch (256KB)
-      fetch_max_bytes: 8388608       # Max bytes to fetch (8MB)
-      max_partition_fetch_bytes: 2097152  # Max per partition (2MB)
-
-  # Batch tracking configuration
-  batch_tracker:
-    enabled: true
-    postgres_url: "postgresql://postgres:password@localhost/openwit"
-    wal_directory: "./data/wal"
-    batch_config:
-      max_size_bytes: 10485760       # 10MB max (configurable)
-      max_messages: 10000            # Max messages per batch (configurable)
-      max_age_seconds: 30            # Max batch age before force flush
-
-  grpc:
-    port: 4317
-    bind: "0.0.0.0"
-    max_message_size: 209715200      # 200MB (configurable)
-    max_concurrent_requests: 10000   # Concurrent request limit
-    request_timeout_ms: 2000         # Request timeout
-    worker_threads: 4                # Processing threads
-    max_concurrent_streams: 1000     # HTTP/2 streams
-
-    # Batching for gRPC (optional)
-    batching:
-      enabled: true
-      max_batch_size: 1000           # Requests per batch
-      batch_timeout_ms: 100          # Max wait time
-
-  http:
-    port: 9087
-    bind: "0.0.0.0"
-    max_payload_size_mb: 100         # Max payload (configurable)
-    max_concurrent_requests: 5000    # Concurrent requests
-    request_timeout_ms: 30000        # Request timeout
-
-    # Batching for HTTP (optional)
-    batching:
-      enabled: true
-      max_batch_size: 1000           # Requests per batch
-      batch_timeout_ms: 100          # Max wait time
+      # Batching for HTTP (optional)
+      batching:
+         enabled: true
+         max_batch_size: 1000           # Requests per batch
+         batch_timeout_ms: 100          # Max wait time
 
 # Storage backend
 storage:
-  backend: "local"  # or "azure", "s3", "gcs"
-  data_dir: "./data/storage"
+   backend: "local"  # or "azure", "s3", "gcs"
+   data_dir: "./data/storage"
 
-  azure:
-    enabled: false
-    account_name: ""
-    container_name: ""
-    access_key: ""
+   azure:
+      enabled: false
+      account_name: ""
+      container_name: ""
+      access_key: ""
 
-  parquet:
-    compression_codec: "zstd"
-    compression_level: 3
-    row_group_size: 1000000
+   parquet:
+      compression_codec: "zstd"
+      compression_level: 3
+      row_group_size: 1000000
 
-  # File rotation triggers
-  file_rotation:
-    file_size_mb: 200                # Rotate at 200MB
-    file_duration_minutes: 60        # Or after 1 hour
-    enable_active_stable_files: true
-    upload_delay_minutes: 2
+   # File rotation triggers
+   file_rotation:
+      file_size_mb: 200                # Rotate at 200MB
+      file_duration_minutes: 60        # Or after 1 hour
+      enable_active_stable_files: true
+      upload_delay_minutes: 2
 
-  # Local file cleanup
-  local_retention:
-    retention_days: 7
-    delete_after_upload: true        # Clean up after cloud upload
+   # Local file cleanup
+   local_retention:
+      retention_days: 7
+      delete_after_upload: true        # Clean up after cloud upload
 
 # Service ports
 service_ports:
-  control_plane:
-    service: 7019
-  storage:
-    service: 8081
-  ingestion:
-    grpc: 4317
-    http: 9087
-  search:
-    service: 8083
+   control_plane:
+      service: 7019
+   storage:
+      service: 8081
+   ingestion:
+      grpc: 4317
+      http: 9087
+   search:
+      service: 8083
 ```
 
 See `config/openwit-unified-control.yaml` for full configuration options.
@@ -661,13 +661,13 @@ ORDER BY created_at;
 ```sql
 -- Count batches at each pipeline stage
 SELECT
-  COUNT(*) as total_batches,
-  SUM(CASE WHEN kafka_pip THEN 1 ELSE 0 END) as kafka_complete,
-  SUM(CASE WHEN wal_pip THEN 1 ELSE 0 END) as wal_complete,
-  SUM(CASE WHEN ingestion_pip THEN 1 ELSE 0 END) as ingestion_complete,
-  SUM(CASE WHEN storage_pip THEN 1 ELSE 0 END) as storage_complete,
-  SUM(CASE WHEN index_pip THEN 1 ELSE 0 END) as index_complete,
-  SUM(CASE WHEN janitor_pip THEN 1 ELSE 0 END) as janitor_complete
+   COUNT(*) as total_batches,
+   SUM(CASE WHEN kafka_pip THEN 1 ELSE 0 END) as kafka_complete,
+   SUM(CASE WHEN wal_pip THEN 1 ELSE 0 END) as wal_complete,
+   SUM(CASE WHEN ingestion_pip THEN 1 ELSE 0 END) as ingestion_complete,
+   SUM(CASE WHEN storage_pip THEN 1 ELSE 0 END) as storage_complete,
+   SUM(CASE WHEN index_pip THEN 1 ELSE 0 END) as index_complete,
+   SUM(CASE WHEN janitor_pip THEN 1 ELSE 0 END) as janitor_complete
 FROM batch_tracker
 WHERE created_at > NOW() - INTERVAL '1 hour';
 ```
@@ -677,10 +677,10 @@ WHERE created_at > NOW() - INTERVAL '1 hour';
 ```sql
 -- Messages per second by client (last hour)
 SELECT
-  client_id,
-  COUNT(*) as batches,
-  SUM(message_count) as total_messages,
-  SUM(message_count) / 3600.0 as messages_per_second
+   client_id,
+   COUNT(*) as batches,
+   SUM(message_count) as total_messages,
+   SUM(message_count) / 3600.0 as messages_per_second
 FROM batch_tracker
 WHERE created_at > NOW() - INTERVAL '1 hour'
 GROUP BY client_id
@@ -815,7 +815,7 @@ All sensitive configuration uses environment variables:
 ```yaml
 # Example from config file
 azure:
-  access_key: "${AZURE_STORAGE_ACCESS_KEY}"  # Uses env variable
+   access_key: "${AZURE_STORAGE_ACCESS_KEY}"  # Uses env variable
 postgres_url: "${POSTGRES_URL}"              # Uses env variable
 ```
 

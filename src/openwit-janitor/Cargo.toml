@@ -15,7 +15,6 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 
 # Internal dependencies
-openwit-common = { workspace = true }
 openwit-config = { workspace = true }
 openwit-storage = { workspace = true }
 openwit-indexer = { workspace = true }

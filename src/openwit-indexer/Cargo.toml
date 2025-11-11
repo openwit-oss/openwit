@@ -94,7 +94,6 @@ libc = { workspace = true }
 rand = { workspace = true }
 
 # Internal dependencies
-openwit-common = { workspace = true }
 openwit-config = { workspace = true }
 openwit-storage = { workspace = true }
 openwit_ingestion = { workspace = true }

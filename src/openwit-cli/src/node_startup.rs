@@ -56,9 +56,9 @@ pub async fn start_control_node(config: UnifiedConfig, node_id: String, port: u1
     Ok(())
 }
 
-/// Start the ingestion node with unified config
-pub async fn start_ingest_node(config: UnifiedConfig, node_id: String, port: u16) -> Result<()> {
-    info!("Starting Ingestion Node: {}", node_id);
+/// Start the gRPC ingestion node with unified config
+pub async fn start_grpc_node(config: UnifiedConfig, node_id: String, port: u16) -> Result<()> {
+    info!("Starting gRPC Node: {}", node_id);
     info!("════════════════════════════════════════");
     
     // Use gRPC configuration from YAML if available, otherwise use provided port
@@ -89,86 +89,65 @@ pub async fn start_ingest_node(config: UnifiedConfig, node_id: String, port: u16
     if !config.ingestion.sources.grpc.enabled {
         return Err(anyhow::anyhow!("gRPC ingestion is disabled in configuration. Enable it by setting ingestion.sources.grpc.enabled: true"));
     }
-    
-    // Gossip functionality deprecated - networking disabled for simplicity
+
     let mut ingest_config = config;
-    let _cluster_handle: Option<openwit_network::ClusterHandle> = None;
-    info!("Cluster networking DISABLED (gossip deprecated)");
-    
+
     // Update the gRPC port in config to match the provided port
     ingest_config.ingestion.grpc.port = port;
     ingest_config.ingestion.grpc.bind = format!("0.0.0.0:{}", port);
     
-    // Log ingestion configuration details
-    info!("Ingestion configuration:");
-    info!("  gRPC port: {}", port);
+    // Log gRPC configuration details
+    info!("gRPC node configuration:");
+    info!("  Port: {}", port);
     info!("  Node ID: {}", node_id);
     
-    // Create control plane client and pass to ingestion service
-    let control_client = match openwit_control_plane::client::ControlPlaneClient::new(&node_id, &ingest_config).await {
-        Ok(client) => {
-            info!("✅ Connected to control plane at {}", ingest_config.control_plane.grpc_endpoint);
-            Some(client)
-        }
-        Err(e) => {
-            warn!("⚠️ Failed to connect to control plane: {}. Ingestion will run without control plane integration.", e);
-            None
-        }
-    };
-    
-    // Register ingestion node with control plane
-    if let Some(client) = control_client {
-        // Create new ingestion service with control plane
-        let ingestion_service = openwit_ingestion::TelemetryIngestionGrpcService::new_with_control_plane(
-            node_id.clone(),
-            client.clone(),
-            ingest_config.clone(),
-        );
-        
-        // Spawn registration task
+    // Spawn control plane connection and registration task
+    // This will retry connecting even if control plane is not available at startup
+    {
         let node_id_clone = node_id.clone();
         let config_clone = ingest_config.clone();
-        let mut client_clone = client.clone();
-        
+
         tokio::spawn(async move {
-            // Initial registration
-            register_ingestion_node_with_control_plane(&mut client_clone, &config_clone, &node_id_clone, port).await;
-            
-            // Start periodic health reporting
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
-            
+            let mut control_client: Option<openwit_control_plane::client::ControlPlaneClient> = None;
+            let mut retry_interval = tokio::time::interval(std::time::Duration::from_secs(5));
+            retry_interval.tick().await; // Skip first tick
+
             loop {
-                interval.tick().await;
-                register_ingestion_node_with_control_plane(&mut client_clone, &config_clone, &node_id_clone, port).await;
+                // Try to connect if not connected
+                if control_client.is_none() {
+                    match openwit_control_plane::client::ControlPlaneClient::new(&node_id_clone, &config_clone).await {
+                        Ok(client) => {
+                            info!("✅ Connected to control plane at {}", config_clone.control_plane.grpc_endpoint);
+                            control_client = Some(client);
+
+                            // Immediately register
+                            if let Some(ref mut client) = control_client {
+                                register_grpc_node_with_control_plane(client, &config_clone, &node_id_clone, port).await;
+                            }
+                        }
+                        Err(e) => {
+                            debug!("Waiting for control plane to become available: {}", e);
+                        }
+                    }
+                } else {
+                    // Already connected, send periodic health updates
+                    if let Some(ref mut client) = control_client {
+                        register_grpc_node_with_control_plane(client, &config_clone, &node_id_clone, port).await;
+                    }
+                }
+
+                // Wait before next attempt/update
+                retry_interval.tick().await;
             }
         });
-        
-        // Start the gRPC server for ingestion
-        info!("Starting ingestion gRPC server on {} (with control plane)", addr);
-        
-        let ingestion_server = ingestion_service.into_server();
-        
-        tonic::transport::Server::builder()
-            .add_service(ingestion_server)
-            .serve(addr)
-            .await?;
-    } else {
-        // Start without control plane
-        info!("Starting ingestion gRPC server on {} (without control plane)", addr);
-        
-        // Create ingestion service without control plane
-        let ingestion_service = openwit_ingestion::TelemetryIngestionGrpcService::new(
-            node_id.clone(),
-            ingest_config.clone(),
-        );
-        
-        let ingestion_server = ingestion_service.into_server();
-        
-        tonic::transport::Server::builder()
-            .add_service(ingestion_server)
-            .serve(addr)
-            .await?;
     }
+
+    // Start OTLP gRPC server (uses openwit-grpc crate for standard OTLP protocol)
+    info!("Starting OTLP/gRPC server on {}", addr);
+
+    // Use the OTLP gRPC server from openwit-grpc crate
+    let grpc_server = openwit_grpc::GrpcServer::new(ingest_config, None);
+    grpc_server.start().await?;
     
     Ok(())
 }
@@ -1163,8 +1142,8 @@ fn start_storage_health_reporter(
     });
 }
 
-/// Register ingestion node with control plane
-async fn register_ingestion_node_with_control_plane(
+/// Register gRPC node with control plane
+async fn register_grpc_node_with_control_plane(
     client: &mut openwit_control_plane::client::ControlPlaneClient,
     config: &UnifiedConfig,
     node_id: &str,
@@ -1201,7 +1180,7 @@ async fn register_ingestion_node_with_control_plane(
     let mut metadata = std::collections::HashMap::new();
     metadata.insert("grpc_endpoint".to_string(), ingestion_endpoint.clone());
     metadata.insert("status".to_string(), "accepting".to_string());
-    metadata.insert("service_type".to_string(), "ingestion".to_string());
+    metadata.insert("service_type".to_string(), "grpc".to_string());
     metadata.insert("grpc_port".to_string(), grpc_port.to_string());
     
     // Add Arrow Flight endpoint for ingestion
@@ -1219,14 +1198,14 @@ async fn register_ingestion_node_with_control_plane(
         }
     }
     
-    // Register with control plane
+    // Register with control plane (role is "ingest", service_type is "grpc")
     match client.register_node(node_id, "ingest", metadata).await {
         Ok(_) => {
-            info!("✅ Successfully registered ingestion node {} with control plane", node_id);
+            info!("✅ Successfully registered gRPC node {} with control plane", node_id);
             info!("   gRPC endpoint: {}", ingestion_endpoint);
         }
         Err(e) => {
-            warn!("⚠️ Failed to register ingestion node {} with control plane: {}", node_id, e);
+            warn!("⚠️ Failed to register gRPC node {} with control plane: {}", node_id, e);
         }
     }
 }

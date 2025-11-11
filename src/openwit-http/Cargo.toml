@@ -36,7 +36,6 @@ opentelemetry-proto = { workspace = true }
 # Internal dependencies
 openwit_ingestion = { workspace = true }
 openwit-config = { workspace = true }
-openwit-common = { workspace = true }
 openwit-proto = { workspace = true }
 openwit-metrics = { workspace = true }
 openwit-control-plane = { workspace = true }
