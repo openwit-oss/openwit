@@ -1,3 +1,8 @@
+<p align="center">
+    <a href="https://openwit.io" target="_blank"><img src="./public/image/heading-banner.png" alt="OpenWit - Distributed Observability Platform" style="width: 100%;"></a>
+    <br />
+</p>
+
 # OpenWit - Distributed Observability Platform
 
 OpenWit is a high-performance, distributed observability platform designed to ingest, store, and query telemetry data (traces, logs, metrics) at scale. Built in Rust with Apache Arrow and Parquet, it uses a **batch-based architecture** with PostgreSQL for complete pipeline tracking and observability.
