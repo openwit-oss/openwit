@@ -324,44 +324,21 @@ fn default_reconnect_backoff_max_ms() -> u64 { 1000 }
 pub struct GrpcIngestionConfig {
     #[serde(default = "default_grpc_bind")]
     pub bind: String,
-    
+
     #[serde(default = "default_grpc_port")]
     pub port: u16,
-    
-    #[serde(default = "default_runtime_size")]
-    pub runtime_size: u32,
-    
-    #[serde(default = "default_max_concurrent_requests")]
-    pub max_concurrent_requests: u32,
-    
-    #[serde(default = "default_request_timeout_ms")]
-    pub request_timeout_ms: u64,
-    
-    #[serde(default = "default_connection_pool_size")]
-    pub connection_pool_size: u32,
-    
-    #[serde(default = "default_keepalive_time_ms")]
-    pub keepalive_time_ms: u64,
-    
-    #[serde(default = "default_keepalive_timeout_ms")]
-    pub keepalive_timeout_ms: u64,
-    
-    #[serde(default)]
-    pub tls: TlsConfig,
 
     #[serde(default = "default_max_message_size")]
-    pub max_message_size: usize
+    pub max_message_size: usize,
+
+    #[serde(default)]
+    pub tls: TlsConfig,
 }
 
 fn default_grpc_bind() -> String { "0.0.0.0".to_string() }
 fn default_grpc_port() -> u16 { 4317 }
 fn default_max_message_size() -> usize { 4194304 }
-fn default_runtime_size() -> u32 { 8 }
-fn default_max_concurrent_requests() -> u32 { 10000 }
 fn default_request_timeout_ms() -> u64 { 30000 }
-fn default_connection_pool_size() -> u32 { 20 }
-fn default_keepalive_time_ms() -> u64 { 10000 }
-fn default_keepalive_timeout_ms() -> u64 { 20000 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TlsConfig {

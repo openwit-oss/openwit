@@ -96,34 +96,7 @@ ingestion:
   grpc:
     bind: "0.0.0.0"
     port: 50051
-    bind_addr: "0.0.0.0:50051"
-
-    runtime_size: 8
-    max_concurrent_requests: 10000
-    request_timeout_ms: 2000
-    connection_pool_size: 100
-
     max_message_size: 208715200
-    max_receive_message_size_mb: 200
-    max_send_message_size_mb: 100
-
-    keepalive_time_ms: 60000
-    keepalive_timeout_ms: 20000
-    keepalive_time_seconds: 60
-    keepalive_timeout_seconds: 20
-    max_connection_idle_seconds: 300
-    max_connection_age_seconds: 0
-    max_connection_age_grace_seconds: 10
-
-    otlp_traces_enabled: true
-    otlp_metrics_enabled: true
-    otlp_logs_enabled: true
-
-    worker_threads: 4
-    max_concurrent_streams: 1000
-
-    compression_enabled: true
-    accepted_compression_algorithms: ["gzip", "zstd"]
 
     tls:
       enabled: false

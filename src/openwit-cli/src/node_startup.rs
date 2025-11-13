@@ -58,10 +58,6 @@ pub async fn start_grpc_node(config: UnifiedConfig, node_id: String, port: u16) 
     info!("gRPC Configuration:");
     info!("  Bind address: {}", addr);
     info!("  Max message size: {} bytes", config.ingestion.grpc.max_message_size);
-    info!("  Max concurrent requests: {}", config.ingestion.grpc.max_concurrent_requests);
-    info!("  Request timeout: {} ms", config.ingestion.grpc.request_timeout_ms);
-    info!("  Connection pool size: {}", config.ingestion.grpc.connection_pool_size);
-    info!("  Keepalive time: {} ms", config.ingestion.grpc.keepalive_time_ms);
     
     if !config.ingestion.sources.grpc.enabled {
         return Err(anyhow::anyhow!("gRPC ingestion is disabled in configuration. Enable it by setting ingestion.sources.grpc.enabled: true"));
