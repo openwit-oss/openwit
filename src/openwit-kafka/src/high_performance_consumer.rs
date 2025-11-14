@@ -16,7 +16,7 @@ use crate::types::{KafkaMessage, TopicIndexConfig};
 use crate::grpc_client::TelemetryIngestionClient;
 use crate::client_extractor::ClientExtractor;
 use crate::client_batch_manager::{ClientBatchManager, CompletedBatch};
-use crate::batch_tracker::BatchTracker;
+use openwit_postgres::BatchTracker;
 use crate::wal_writer::WalWriter;
 // use openwit_metrics::{
 //     INGESTION_MESSAGES_TOTAL,
@@ -395,7 +395,7 @@ impl HighPerformanceKafkaConsumer {
     /// Check PostgreSQL connectivity
     async fn check_postgres_connectivity(&self, batch_tracker: &Arc<BatchTracker>) -> bool {
         // Try to get batch status for a non-existent batch to test connectivity
-        match batch_tracker.get_batch_status(Uuid::nil()).await {
+        match batch_tracker.get_batch_status(&Uuid::nil().to_string()).await {
             Ok(_) => true,  // Connection works (even if no batch found)
             Err(e) => {
                 debug!("PostgreSQL connectivity check failed: {}", e);
@@ -532,7 +532,7 @@ impl HighPerformanceKafkaConsumer {
                     
                     // Step 2: Update PostgreSQL - WAL completed
                     if let Some(ref tracker) = self.batch_tracker {
-                        if let Err(e) = tracker.update_wal_completed(batch.batch_id).await {
+                        if let Err(e) = tracker.update_wal_completed(&batch.batch_id).await {
                             error!("Failed to update WAL status in PostgreSQL: {}", e);
                         }
                     }
@@ -542,7 +542,7 @@ impl HighPerformanceKafkaConsumer {
                     
                     // Record error in tracker
                     if let Some(ref tracker) = self.batch_tracker {
-                        let _ = tracker.record_error(batch.batch_id, "wal", &e.to_string()).await;
+                        let _ = tracker.record_error(&batch.batch_id, "wal", &e.to_string()).await;
                     }
                     
                     return Err(e);
@@ -552,21 +552,23 @@ impl HighPerformanceKafkaConsumer {
         
         // Step 3: Send to ingestion service
         // Select gRPC client based on batch ID for load distribution
-        let grpc_client_idx = (batch.batch_id.as_u128() as usize) % self.grpc_clients.len();
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        std::hash::Hash::hash(&batch.batch_id, &mut hasher);
+        let grpc_client_idx = (std::hash::Hasher::finish(&hasher) as usize) % self.grpc_clients.len();
         let grpc_client = &self.grpc_clients[grpc_client_idx];
-        
+
         // Send batch to ingestion service
-        match grpc_client.send_batch(batch.batch_id.to_string(), batch.messages.clone()).await {
+        match grpc_client.send_batch(batch.batch_id.clone(), batch.messages.clone()).await {
             Ok(_) => {
                 info!(
                     "Batch {} sent to ingestion successfully ({} messages in {:?})",
                     batch.batch_id, batch.message_count, start_time.elapsed()
                 );
                 
-                // Step 4: Update PostgreSQL - Kafka completed (sent to ingestion)
+                // Step 4: Update PostgreSQL - Data completed (sent to ingestion)
                 if let Some(ref tracker) = self.batch_tracker {
-                    if let Err(e) = tracker.update_kafka_completed(batch.batch_id).await {
-                        error!("Failed to update kafka status in PostgreSQL: {}", e);
+                    if let Err(e) = tracker.update_data_completed(&batch.batch_id).await {
+                        error!("Failed to update data status in PostgreSQL: {}", e);
                     }
                 }
                 
@@ -584,7 +586,7 @@ impl HighPerformanceKafkaConsumer {
                 
                 // Record error in tracker
                 if let Some(ref tracker) = self.batch_tracker {
-                    let _ = tracker.record_error(batch.batch_id, "ingestion", &e.to_string()).await;
+                    let _ = tracker.record_error(&batch.batch_id, "ingestion", &e.to_string()).await;
                 }
                 
                 return Err(e.into());

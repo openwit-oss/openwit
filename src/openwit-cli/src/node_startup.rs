@@ -126,8 +126,7 @@ pub async fn start_grpc_node(config: UnifiedConfig, node_id: String, port: u16) 
         info!("Ingestion receiver started - waiting for batched messages from gRPC");
         while let Some(message) = ingest_rx.recv().await {
             // TODO: Forward to storage/indexing pipeline
-            // For now, just log that we received it
-            debug!("Received batched message: id={}, size={} bytes", message.id, message.size_bytes);
+            // Messages are processed silently - batch-level logging provides visibility
         }
         info!("Ingestion receiver shutting down");
     });

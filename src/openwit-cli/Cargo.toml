@@ -11,6 +11,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 clap = { workspace = true }
 flate2 = { workspace = true }
+dotenvy = "0.15"
 
 http = { workspace = true }
 prost = { workspace = true }

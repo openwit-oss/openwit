@@ -11,6 +11,7 @@
 
 use anyhow::Result;
 use openwit_ingestion::IngestedMessage;
+use openwit_postgres::BatchTracker;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
@@ -75,12 +76,14 @@ impl FlushWorkerPool {
         config: FlushPoolConfig,
         ingest_tx: mpsc::Sender<IngestedMessage>,
         wal_manager: Arc<WalManager>,
+        batch_tracker: Option<Arc<BatchTracker>>,
     ) -> Arc<Self> {
         tracing::info!(
-            "Creating flush worker pool: {} workers, queue capacity: {}, WAL: {:?}",
+            "Creating flush worker pool: {} workers, queue capacity: {}, WAL: {:?}, Batch tracking: {}",
             config.worker_count,
             config.queue_capacity,
-            wal_manager.wal_directory()
+            wal_manager.wal_directory(),
+            if batch_tracker.is_some() { "enabled" } else { "disabled" }
         );
 
         let mut workers = Vec::new();
@@ -93,9 +96,10 @@ impl FlushWorkerPool {
 
             let tx = ingest_tx.clone();
             let wal = wal_manager.clone();
+            let tracker = batch_tracker.clone();
 
             let handle = tokio::spawn(async move {
-                worker_task(worker_id, batch_rx, tx, wal).await;
+                worker_task(worker_id, batch_rx, tx, wal, tracker).await;
             });
 
             workers.push(handle);
@@ -156,6 +160,7 @@ async fn worker_task(
     mut batch_rx: mpsc::Receiver<ReadyBatch>,
     ingest_tx: mpsc::Sender<IngestedMessage>,
     wal_manager: Arc<WalManager>,
+    batch_tracker: Option<Arc<BatchTracker>>,
 ) {
     tracing::info!("Flush worker {} started", worker_id);
 
@@ -190,6 +195,36 @@ async fn worker_task(
             );
         }
 
+        // Track batch creation in PostgreSQL (non-blocking background task)
+        if let Some(ref tracker) = batch_tracker {
+            let tracker_clone = tracker.clone();
+            let batch_id_clone = batch_id.clone();
+            let index_id_clone = index_id.clone();
+            let message_count_clone = message_count;
+            let total_bytes_clone = total_bytes;
+
+            tokio::spawn(async move {
+                // Extract peer address from first message if available
+                let peer_address = None; // TODO: Extract from message source if needed
+                let telemetry_type = Some("grpc".to_string());
+
+                if let Err(e) = tracker_clone.create_batch(
+                    batch_id_clone.clone(),
+                    "grpc".to_string(),
+                    index_id_clone.clone().unwrap_or_else(|| "default".to_string()),
+                    total_bytes_clone as i32,
+                    message_count_clone as i32,
+                    None, // first_offset (Kafka only)
+                    None, // last_offset (Kafka only)
+                    vec![], // topics (Kafka only)
+                    peer_address,
+                    telemetry_type,
+                ).await {
+                    tracing::warn!("Failed to create batch record in tracker for {}: {}", batch_id_clone, e);
+                }
+            });
+        }
+
         // STEP 1: Write batch to WAL before processing (with index_id for directory structure)
         match wal_manager.write_batch_with_index(&batch_id, batch.messages.clone(), total_bytes, &flush_reason, &index_id).await {
             Ok(_) => {
@@ -208,6 +243,17 @@ async fn worker_task(
                         batch_id,
                         message_count
                     );
+                }
+
+                // Update batch tracker - WAL pipeline completed (non-blocking background task)
+                if let Some(ref tracker) = batch_tracker {
+                    let tracker_clone = tracker.clone();
+                    let batch_id_clone = batch_id.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = tracker_clone.update_wal_completed(&batch_id_clone).await {
+                            tracing::warn!("Failed to update WAL status in batch tracker for {}: {}", batch_id_clone, e);
+                        }
+                    });
                 }
             }
             Err(e) => {
@@ -342,7 +388,7 @@ mod tests {
             queue_capacity: 10,
         };
 
-        let pool = FlushWorkerPool::new(config, ingest_tx, wal_manager);
+        let pool = FlushWorkerPool::new(config, ingest_tx, wal_manager, None);
 
         assert_eq!(pool.worker_count(), 3);
     }
@@ -359,7 +405,7 @@ mod tests {
             queue_capacity: 10,
         };
 
-        let pool = FlushWorkerPool::new(config, ingest_tx, wal_manager);
+        let pool = FlushWorkerPool::new(config, ingest_tx, wal_manager, None);
 
         // Create test batch
         let batch = ReadyBatch {

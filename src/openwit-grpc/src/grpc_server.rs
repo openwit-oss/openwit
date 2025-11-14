@@ -12,6 +12,7 @@ use opentelemetry_proto::tonic::collector::{
 
 use openwit_config::UnifiedConfig;
 use openwit_ingestion::types::IngestionConfig;
+use openwit_postgres::BatchTracker;
 use crate::otlp_services::{OtlpTraceService, OtlpMetricsService, OtlpLogsService};
 use crate::batcher::{Batcher, BatcherConfig};
 use crate::flush_pool::{FlushWorkerPool, FlushPoolConfig};
@@ -89,11 +90,32 @@ impl GrpcServer {
 
             let wal_manager = Arc::new(wal_manager);
 
+            // Initialize batch tracker for PostgreSQL monitoring
+            let batch_tracker = match std::env::var("POSTGRES_URL") {
+                Ok(postgres_url) => {
+                    tracing::info!("Initializing batch tracker with PostgreSQL");
+                    match BatchTracker::new(&postgres_url).await {
+                        Ok(tracker) => {
+                            tracing::info!("Batch tracker initialized successfully");
+                            Some(Arc::new(tracker))
+                        }
+                        Err(e) => {
+                            tracing::warn!("Failed to initialize batch tracker: {}. Continuing without batch tracking.", e);
+                            None
+                        }
+                    }
+                }
+                Err(_) => {
+                    tracing::info!("POSTGRES_URL not set, batch tracking disabled");
+                    None
+                }
+            };
+
             // Create flush worker pool configuration
             let flush_pool_config = FlushPoolConfig::default();
 
-            // Create flush worker pool (5 workers by default) with WAL
-            let flush_pool = FlushWorkerPool::new(flush_pool_config, ingest_tx, wal_manager);
+            // Create flush worker pool (5 workers by default) with WAL and batch tracker
+            let flush_pool = FlushWorkerPool::new(flush_pool_config, ingest_tx, wal_manager, batch_tracker.clone());
 
             // Create batcher with flush pool (returns Arc<Batcher>)
             let batcher = Batcher::new(batcher_config, flush_pool);

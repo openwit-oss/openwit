@@ -21,7 +21,7 @@ pub struct WalWriter {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalHeader {
     pub version: u8,
-    pub batch_id: Uuid,
+    pub batch_id: String,
     pub client_id: String,
     pub created_at: DateTime<Utc>,
     pub message_count: usize,
@@ -86,7 +86,7 @@ impl WalWriter {
         // Create and write header
         let header = WalHeader {
             version: 1,
-            batch_id: batch.batch_id,
+            batch_id: batch.batch_id.clone(),
             client_id: batch.client_id.clone(),
             created_at: Utc::now(),
             message_count: batch.message_count,

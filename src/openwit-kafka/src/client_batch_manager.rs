@@ -7,7 +7,7 @@ use tokio::time::interval;
 use uuid::Uuid;
 use tracing::{info, error, debug};
 
-use crate::batch_tracker::BatchTracker;
+use openwit_postgres::BatchTracker;
 use crate::types::KafkaMessage;
 use crate::client_extractor::ClientExtractor;
 use openwit_config::unified::ingestion::BatchConfig;
@@ -44,7 +44,7 @@ pub struct ClientBuffer {
 /// Represents a completed batch ready for processing
 #[derive(Debug, Clone)]
 pub struct CompletedBatch {
-    pub batch_id: Uuid,
+    pub batch_id: String,
     pub client_id: String,
     pub messages: Vec<KafkaMessage>,
     pub total_bytes: usize,
@@ -120,7 +120,7 @@ impl ClientBatchManager {
     }
     
     /// Add a message to the appropriate client buffer
-    pub async fn add_message(&self, message: KafkaMessage) -> Result<Option<Uuid>> {
+    pub async fn add_message(&self, message: KafkaMessage) -> Result<Option<String>> {
         // Extract client_id from message headers
         let client_id = message.headers.get("client_name")
             .ok_or_else(|| anyhow::anyhow!("Message missing client_name header"))?
@@ -190,22 +190,29 @@ impl ClientBatchManager {
     }
     
     /// Create a completed batch and send it
-    async fn create_and_send_batch(&self, buffer: ClientBuffer) -> Result<Uuid> {
+    async fn create_and_send_batch(&self, buffer: ClientBuffer) -> Result<String> {
         let client_id = buffer.client_id.clone();
         let message_count = buffer.messages.len();
-        
+
+        // Generate batch ID
+        let batch_id = Uuid::new_v4().to_string();
+
         // Create batch record in PostgreSQL
         let batch_id = self.batch_tracker.create_batch(
+            batch_id,
+            "kafka".to_string(),
             client_id.clone(),
             buffer.total_bytes as i32,
             message_count as i32,
             buffer.first_offset,
             buffer.last_offset,
             buffer.topics.clone(),
+            None, // peer_address
+            None, // telemetry_type
         ).await?;
-        
+
         let completed_batch = CompletedBatch {
-            batch_id,
+            batch_id: batch_id.clone(),
             client_id: buffer.client_id,
             messages: buffer.messages,
             total_bytes: buffer.total_bytes,
@@ -215,18 +222,18 @@ impl ClientBatchManager {
             last_offset: buffer.last_offset,
             topics: buffer.topics,
         };
-        
+
         // Send to processing channel
         self.batch_sender.send(completed_batch)
             .await
             .context("Failed to send completed batch")?;
-        
+
         info!("Created batch {} for client {}", batch_id, client_id);
         Ok(batch_id)
     }
     
     /// Flush a specific client's buffer
-    pub async fn flush_client(&self, client_id: &str) -> Result<Option<Uuid>> {
+    pub async fn flush_client(&self, client_id: &str) -> Result<Option<String>> {
         Self::flush_client_internal(
             &self.client_buffers,
             client_id,
@@ -241,31 +248,38 @@ impl ClientBatchManager {
         client_id: &str,
         sender: &mpsc::Sender<CompletedBatch>,
         tracker: &Arc<BatchTracker>,
-    ) -> Result<Option<Uuid>> {
+    ) -> Result<Option<String>> {
         let mut buffers_write = buffers.write().await;
-        
+
         if let Some(buffer) = buffers_write.remove(client_id) {
             if buffer.messages.is_empty() {
                 return Ok(None);
             }
-            
+
             debug!(
                 "Flushing batch for client {}: {} messages, {} bytes",
                 client_id, buffer.messages.len(), buffer.total_bytes
             );
-            
+
+            // Generate batch ID
+            let batch_id = Uuid::new_v4().to_string();
+
             // Create batch record
             let batch_id = tracker.create_batch(
+                batch_id,
+                "kafka".to_string(),
                 buffer.client_id.clone(),
                 buffer.total_bytes as i32,
                 buffer.messages.len() as i32,
                 buffer.first_offset,
                 buffer.last_offset,
                 buffer.topics.clone(),
+                None, // peer_address
+                None, // telemetry_type
             ).await?;
-            
+
             let completed_batch = CompletedBatch {
-                batch_id,
+                batch_id: batch_id.clone(),
                 client_id: buffer.client_id.clone(),
                 message_count: buffer.messages.len(),
                 total_bytes: buffer.total_bytes,
@@ -275,12 +289,12 @@ impl ClientBatchManager {
                 topics: buffer.topics,
                 messages: buffer.messages,
             };
-            
+
             // Send to processing channel
             sender.send(completed_batch)
                 .await
                 .context("Failed to send flushed batch")?;
-            
+
             info!("Flushed batch {} for client {}", batch_id, client_id);
             Ok(Some(batch_id))
         } else {
@@ -289,7 +303,7 @@ impl ClientBatchManager {
     }
     
     /// Flush all client buffers
-    pub async fn flush_all(&self) -> Result<Vec<Uuid>> {
+    pub async fn flush_all(&self) -> Result<Vec<String>> {
         let client_ids: Vec<String> = {
             let buffers = self.client_buffers.read().await;
             buffers.keys().cloned().collect()

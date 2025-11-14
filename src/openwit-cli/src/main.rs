@@ -136,6 +136,18 @@ fn generate_node_id(node_type: &str) -> String {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Load .env file if it exists (for local development)
+    if let Err(e) = dotenvy::dotenv() {
+        // Silently ignore if .env doesn't exist (common in production/K8s)
+        if e.not_found() {
+            // This is fine - using environment variables directly
+        } else {
+            warn!("Warning loading .env file: {}", e);
+        }
+    } else {
+        debug!("Loaded environment variables from .env file");
+    }
+
     // Setup tracing
     let env_filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new("info"));

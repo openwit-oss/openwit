@@ -51,6 +51,7 @@ openwit-config = { workspace = true }
 openwit_ingestion = { workspace = true }
 openwit-proto = { workspace = true }
 openwit-control-plane = { workspace = true }
+openwit-postgres = { path = "../openwit-postgres" }
 
 # CLI and config
 clap = { workspace = true }

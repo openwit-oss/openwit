@@ -15,7 +15,7 @@ use openwit_proto::ingestion::{
     TelemetryIngestRequest,
 };
 use crate::types::KafkaMessage;
-use crate::batch_tracker::BatchTracker;
+use openwit_postgres::BatchTracker;
 
 /// Client for sending Kafka messages to ingestion nodes via gRPC
 #[allow(unused)]
